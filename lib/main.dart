@@ -1,3 +1,4 @@
+import 'package:attandance/pages/attendance_log.dart';
 import 'package:attandance/pages/color_page.dart';
 import 'package:attandance/pages/home.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +38,7 @@ class _HomePageState extends State<HomePage> {
     final List<Widget> _pages = [
       ColorSchemePreviewPage(), // Your theme preview page!
       Home(),
+      Attendance(),
     ];
 
     return Scaffold(
@@ -56,6 +58,10 @@ class _HomePageState extends State<HomePage> {
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.color_lens), label: "Color"),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.punch_clock),
+            label: "Attendance",
+          ),
         ],
       ),
     );
