@@ -49,7 +49,7 @@ class _AttendanceState extends State<Attendance> {
           return items.map((String item) {
             return PopupMenuItem<String>(
               value: item,
-              height: 36, // Compact height per item
+              height: 36,
               child: Text(
                 item,
                 style: const TextStyle(
@@ -63,9 +63,7 @@ class _AttendanceState extends State<Attendance> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(
-              30,
-            ), // Fully circular pill border
+            borderRadius: BorderRadius.circular(30),
             border: Border.all(color: Colors.grey.shade300),
             color: Theme.of(context).colorScheme.surface,
           ),
@@ -90,9 +88,56 @@ class _AttendanceState extends State<Attendance> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
+    Widget BuildMetric(
+      BuildContext context,
+      String label,
+      String value,
+      IconData icon,
+    ) {
+      return Column(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 13,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {},
+        child: const Icon(Icons.linked_camera),
+      ),
       body: Column(
         children: [
+          // Top Part: Filter Data Option
           Container(
             margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
             child: Row(
@@ -126,8 +171,11 @@ class _AttendanceState extends State<Attendance> {
               ],
             ),
           ),
+
+          // Middle Top Part: Main Table Log
           Container(
             width: double.infinity,
+            constraints: BoxConstraints(maxHeight: 296),
             margin: const EdgeInsets.all(10),
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
@@ -142,67 +190,183 @@ class _AttendanceState extends State<Attendance> {
               builder: (context, constraints) {
                 final double colWidth = constraints.maxWidth / 4;
 
-                // Helper function to build uniform left-aligned cells with horizontal padding
                 Widget buildCell(String text) {
                   return Container(
                     width: colWidth,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 15,
-                    ), // Spacing from left & right cell edges
-                    alignment: Alignment.centerLeft, // Left-align text
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    alignment: Alignment.centerLeft,
                     child: Text(text, softWrap: true),
                   );
                 }
 
-                return SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: DataTable(
-                    horizontalMargin: 0,
-                    columnSpacing: 0,
-                    headingRowColor: WidgetStatePropertyAll(
-                      Theme.of(context).colorScheme.secondaryContainer,
+                final columns = [
+                  DataColumn(label: buildCell("Date")),
+                  DataColumn(label: buildCell("Clock In")),
+                  DataColumn(label: buildCell("Clock Out")),
+                  DataColumn(label: buildCell("Working Hours")),
+                ];
+
+                return Column(
+                  children: [
+                    DataTable(
+                      horizontalMargin: 0,
+                      columnSpacing: 0,
+                      headingRowColor: WidgetStatePropertyAll(
+                        Theme.of(context).colorScheme.secondaryContainer,
+                      ),
+                      headingTextStyle: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
+                      ),
+                      dataTextStyle: const TextStyle(fontSize: 11),
+                      columns: columns,
+                      rows: [],
                     ),
-                    headingTextStyle: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: DataTable(
+                          headingRowHeight: 0,
+                          horizontalMargin: 0,
+                          columnSpacing: 0,
+                          dataTextStyle: const TextStyle(fontSize: 11),
+                          columns: columns,
+                          rows: [
+                            DataRow(
+                              cells: [
+                                DataCell(buildCell("01 Jan 2026")),
+                                DataCell(buildCell("09:00")),
+                                DataCell(buildCell("17:00")),
+                                DataCell(buildCell("8 Hours")),
+                              ],
+                            ),
+                            DataRow(
+                              cells: [
+                                DataCell(buildCell("02 Jan 2026")),
+                                DataCell(buildCell("09:00")),
+                                DataCell(buildCell("17:00")),
+                                DataCell(buildCell("8 Hours")),
+                              ],
+                            ),
+                            DataRow(
+                              cells: [
+                                DataCell(buildCell("03 Jan 2026")),
+                                DataCell(buildCell("09:00")),
+                                DataCell(buildCell("17:00")),
+                                DataCell(buildCell("8 Hours")),
+                              ],
+                            ),
+                            DataRow(
+                              cells: [
+                                DataCell(buildCell("04 Jan 2026")),
+                                DataCell(buildCell("09:00")),
+                                DataCell(buildCell("17:00")),
+                                DataCell(buildCell("8 Hours")),
+                              ],
+                            ),
+                            DataRow(
+                              cells: [
+                                DataCell(buildCell("05 Jan 2026")),
+                                DataCell(buildCell("09:00")),
+                                DataCell(buildCell("17:00")),
+                                DataCell(buildCell("8 Hours")),
+                              ],
+                            ),
+                            DataRow(
+                              cells: [
+                                DataCell(buildCell("06 Jan 2026")),
+                                DataCell(buildCell("09:00")),
+                                DataCell(buildCell("17:00")),
+                                DataCell(buildCell("8 Hours")),
+                              ],
+                            ),
+                            DataRow(
+                              cells: [
+                                DataCell(buildCell("07 Jan 2026")),
+                                DataCell(buildCell("09:00")),
+                                DataCell(buildCell("17:00")),
+                                DataCell(buildCell("8 Hours")),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    dataTextStyle: const TextStyle(fontSize: 11),
-                    columns: [
-                      DataColumn(label: buildCell("Date")),
-                      DataColumn(label: buildCell("Clock In")),
-                      DataColumn(label: buildCell("Clock Out")),
-                      DataColumn(label: buildCell("Working Hours")),
-                    ],
-                    rows: [
-                      DataRow(
-                        cells: [
-                          DataCell(buildCell("01 Jan 2026")),
-                          DataCell(buildCell("09:00")),
-                          DataCell(buildCell("17:00")),
-                          DataCell(buildCell("8 Hours")),
-                        ],
-                      ),
-                      DataRow(
-                        cells: [
-                          DataCell(buildCell("02 Jan 2026")),
-                          DataCell(buildCell("09:00")),
-                          DataCell(buildCell("17:00")),
-                          DataCell(buildCell("8 Hours")),
-                        ],
-                      ),
-                      DataRow(
-                        cells: [
-                          DataCell(buildCell("03 Jan 2026")),
-                          DataCell(buildCell("09:00")),
-                          DataCell(buildCell("17:00")),
-                          DataCell(buildCell("8 Hours")),
-                        ],
-                      ),
-                    ],
-                  ),
+                  ],
                 );
               },
+            ),
+          ),
+
+          // Middle Bottom Part: Current Day
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            width: screenSize.width * 0.9,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Today's Attendance",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "In Progress",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    BuildMetric(context, "Clock In", "09:00", Icons.login),
+                    BuildMetric(context, "Clock Out", "--", Icons.logout),
+                    BuildMetric(
+                      context,
+                      "Location",
+                      "Tokyo",
+                      Icons.location_on_outlined,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
