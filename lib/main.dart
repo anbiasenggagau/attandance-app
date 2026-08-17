@@ -35,10 +35,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> _pages = [
+    final List<Widget> pages = [
       ColorSchemePreviewPage(), // Your theme preview page!
-      Home(),
       Attendance(),
+      AttendanceLog(),
     ];
 
     return Scaffold(
@@ -47,7 +47,7 @@ class _HomePageState extends State<HomePage> {
         title: Text(widget.title),
       ),
 
-      body: IndexedStack(index: selectedIdx, children: _pages),
+      body: IndexedStack(index: selectedIdx, children: pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIdx,
         onTap: (int idx) {
