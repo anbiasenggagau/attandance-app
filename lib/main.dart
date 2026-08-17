@@ -1,6 +1,7 @@
 import 'package:attandance/pages/attendance_log.dart';
 import 'package:attandance/pages/color_page.dart';
 import 'package:attandance/pages/home.dart';
+import 'package:attandance/pages/request.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -36,7 +37,8 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
-      ColorSchemePreviewPage(), // Your theme preview page!
+      ColorSchemePreviewPage(),
+      Request(),
       Attendance(),
       AttendanceLog(),
     ];
@@ -49,6 +51,17 @@ class _HomePageState extends State<HomePage> {
 
       body: IndexedStack(index: selectedIdx, children: pages),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed, // <--- ADD THIS LINE
+        backgroundColor: Theme.of(
+          context,
+        ).colorScheme.surface, // Set the bar's background
+        selectedItemColor: Theme.of(
+          context,
+        ).colorScheme.primary, // Dark navy for selected
+        unselectedItemColor: Theme.of(
+          context,
+        ).colorScheme.secondary, // Grey for unselected
+        showUnselectedLabels: true,
         currentIndex: selectedIdx,
         onTap: (int idx) {
           setState(() {
@@ -57,10 +70,14 @@ class _HomePageState extends State<HomePage> {
         },
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.color_lens), label: "Color"),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
           BottomNavigationBarItem(
             icon: Icon(Icons.punch_clock),
             label: "Attendance",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event_note),
+            label: "Request",
           ),
         ],
       ),

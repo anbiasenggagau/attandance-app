@@ -151,7 +151,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
       ),
       child: PopupMenuButton<String>(
         position: PopupMenuPosition.under,
-        constraints: const BoxConstraints(maxHeight: 200, minWidth: 80),
+        constraints: BoxConstraints(maxHeight: 200, minWidth: 80),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 3,
         onSelected: onChanged,
@@ -162,16 +162,13 @@ class _AttendanceLogState extends State<AttendanceLog> {
               height: 36,
               child: Text(
                 item,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
               ),
             );
           }).toList();
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
             border: Border.all(color: Colors.grey.shade300),
@@ -182,13 +179,10 @@ class _AttendanceLogState extends State<AttendanceLog> {
             children: [
               Text(
                 value,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down, size: 16),
+              SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down, size: 16),
             ],
           ),
         ),
@@ -203,7 +197,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
         children: [
           // Top Section
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
@@ -213,9 +207,13 @@ class _AttendanceLogState extends State<AttendanceLog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     "Attendance Log",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.inverseSurface,
+                    ),
                   ),
                   Row(
                     children: [
@@ -227,7 +225,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
                           setState(() => selectedMonth = val);
                         },
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       // Year Dropdown
                       _buildDropdownButton(
                         value: selectedYear,
@@ -247,7 +245,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.all(16.0),
+              padding: EdgeInsets.all(16.0),
               itemCount: records.length,
               itemBuilder: (context, index) {
                 return AttendanceCard(record: records[index]);
@@ -300,8 +298,8 @@ class AttendanceCard extends StatelessWidget {
         '${record.formattedCheckIn} - ${record.formattedCheckOut}';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12.0),
-      padding: const EdgeInsets.all(16.0),
+      margin: EdgeInsets.only(bottom: 12.0),
+      padding: EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -317,16 +315,16 @@ class AttendanceCard extends StatelessWidget {
                 Text(
                   timeString,
                   style: TextStyle(
-                    color: Colors.grey.shade500,
+                    color: Theme.of(context).colorScheme.outlineVariant,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   record.formattedDate,
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.inverseSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -340,10 +338,7 @@ class AttendanceCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _getStatusBgColor(record.status),
                   borderRadius: BorderRadius.circular(6),
@@ -357,7 +352,7 @@ class AttendanceCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
             ],
           ),
         ],
@@ -383,30 +378,30 @@ class AttendanceCard extends StatelessWidget {
   Color _getStatusBgColor(AttendanceStatus status) {
     switch (status) {
       case AttendanceStatus.onTime:
-        return const Color(0xFFD1F4E0);
+        return Color(0xFFD1F4E0);
       case AttendanceStatus.late:
-        return const Color(0xFFFCE8E8);
+        return Color(0xFFFCE8E8);
       case AttendanceStatus.inProgress:
-        return const Color(0xFFFEF0C7);
+        return Color(0xFFFEF0C7);
       case AttendanceStatus.overtime:
-        return const Color(0xFFE0F2FE);
+        return Color(0xFFE0F2FE);
       case AttendanceStatus.leaves:
-        return const Color(0xFFF3E8FF);
+        return Color(0xFFF3E8FF);
     }
   }
 
   Color _getStatusTextColor(AttendanceStatus status) {
     switch (status) {
       case AttendanceStatus.onTime:
-        return const Color(0xFF16A34A);
+        return Color(0xFF16A34A);
       case AttendanceStatus.late:
-        return const Color(0xFFDC2626);
+        return Color(0xFFDC2626);
       case AttendanceStatus.inProgress:
-        return const Color(0xFFD97706);
+        return Color(0xFFD97706);
       case AttendanceStatus.overtime:
-        return const Color(0xFF0284C7);
+        return Color(0xFF0284C7);
       case AttendanceStatus.leaves:
-        return const Color(0xFF9333EA);
+        return Color(0xFF9333EA);
     }
   }
 }
