@@ -1,3 +1,4 @@
+import 'package:attandance/pages/submit_attendance.dart';
 import 'package:attandance/widgets/clock_action_button.dart';
 import 'package:attandance/widgets/live_clock.dart';
 import 'package:flutter/material.dart';
@@ -135,7 +136,14 @@ class _AttendanceState extends State<Attendance> {
             child: ClockActionButton(
               icon: Icons.touch_app_outlined,
               label: "Check Out",
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SubmitAttendance(),
+                  ),
+                );
+              },
             ),
           ),
         ],

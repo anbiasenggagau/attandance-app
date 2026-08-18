@@ -32,15 +32,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int selectedIdx = 1;
+  int selectedIdx = 2;
 
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
       ColorSchemePreviewPage(),
-      Request(),
-      Attendance(),
       AttendanceLog(),
+      Attendance(),
+      Request(),
     ];
 
     return Scaffold(
