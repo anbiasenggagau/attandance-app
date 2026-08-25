@@ -1,3 +1,4 @@
+import 'package:attandance/pages/attendance_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -39,6 +40,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
       checkIn: DateTime(2026, 8, 6, 9, 0),
       checkOut: DateTime(2026, 8, 6, 17, 0),
       status: AttendanceStatus.leaves,
+      pending: true,
       statusDetail: 'Sick Leave',
     ),
     AttendanceRecord(
@@ -119,7 +121,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    const double itemHeight = 110.0;
+    const double itemHeight = 94.0;
 
     // Get top card data as we scrolling
     int currentIndex = (_scrollController.offset / itemHeight).floor();
@@ -265,6 +267,7 @@ class AttendanceRecord {
   final DateTime? checkIn;
   final DateTime? checkOut;
   final AttendanceStatus status;
+  final bool pending;
   final String? statusDetail;
 
   AttendanceRecord({
@@ -272,6 +275,7 @@ class AttendanceRecord {
     this.checkIn,
     this.checkOut,
     required this.status,
+    this.pending = false,
     this.statusDetail,
   });
 
@@ -285,6 +289,19 @@ class AttendanceRecord {
 
   String get monthString => DateFormat('MMM').format(date);
   String get yearString => DateFormat('yyyy').format(date);
+
+  String get formattedDuration {
+    if (checkIn == null || checkOut == null) {
+      return '--';
+    }
+
+    final duration = checkOut!.difference(checkIn!);
+
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+
+    return '${hours}h ${minutes}m';
+  }
 }
 
 class AttendanceCard extends StatelessWidget {
@@ -297,85 +314,145 @@ class AttendanceCard extends StatelessWidget {
     final timeString =
         '${record.formattedCheckIn} - ${record.formattedCheckOut}';
 
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.0),
-      padding: EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  timeString,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+    return Column(
+      children: [
+        Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () {
+              if (record.status == AttendanceStatus.leaves ||
+                  record.status == AttendanceStatus.overtime) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AttendanceDetail(),
                   ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  record.formattedDate,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.inverseSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Ink(
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          timeString,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          record.formattedDate,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.inverseSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getStatusBgColor(
+                            record.status,
+                            record.pending,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _getStatusText(record.status, record.pending),
+                          style: TextStyle(
+                            color: _getStatusTextColor(
+                              record.status,
+                              record.pending,
+                            ),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 6),
+
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          record.formattedDuration,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.outline,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
+        ),
 
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getStatusBgColor(record.status),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _getStatusText(record.status),
-                  style: TextStyle(
-                    color: _getStatusTextColor(record.status),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-            ],
-          ),
-        ],
-      ),
+        SizedBox(height: 12),
+      ],
     );
   }
 
-  String _getStatusText(AttendanceStatus status) {
+  String _getStatusText(AttendanceStatus status, bool pending) {
+    String result = "";
     switch (status) {
       case AttendanceStatus.onTime:
-        return 'On Time';
+        result += 'On Time';
       case AttendanceStatus.late:
-        return 'Late';
+        result += 'Late';
       case AttendanceStatus.inProgress:
-        return 'In Progress';
+        result += 'In Progress';
       case AttendanceStatus.overtime:
-        return 'Overtime';
+        result += 'Overtime';
       case AttendanceStatus.leaves:
-        return 'Leaves';
+        result += 'Leaves';
     }
+
+    if (pending) {
+      result += ":Pending";
+    }
+
+    return result;
   }
 
-  Color _getStatusBgColor(AttendanceStatus status) {
+  Color _getStatusBgColor(AttendanceStatus status, bool pending) {
+    if (pending &&
+        (status == AttendanceStatus.overtime ||
+            status == AttendanceStatus.leaves)) {
+      return Color(0xFFE2E8F0);
+    }
+
     switch (status) {
       case AttendanceStatus.onTime:
         return Color(0xFFD1F4E0);
@@ -390,7 +467,13 @@ class AttendanceCard extends StatelessWidget {
     }
   }
 
-  Color _getStatusTextColor(AttendanceStatus status) {
+  Color _getStatusTextColor(AttendanceStatus status, bool pending) {
+    if (pending &&
+        (status == AttendanceStatus.overtime ||
+            status == AttendanceStatus.leaves)) {
+      return Color(0xFF475569);
+    }
+
     switch (status) {
       case AttendanceStatus.onTime:
         return Color(0xFF16A34A);
