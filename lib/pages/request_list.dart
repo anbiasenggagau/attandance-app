@@ -2,18 +2,22 @@ import 'package:attandance/pages/request_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+enum RequestType { overtime, leaves }
+
+enum Status { approved, denied, pending }
+
 void main() {
-  runApp(const AttendanceLog());
+  runApp(const RequestList());
 }
 
-class AttendanceLog extends StatefulWidget {
-  const AttendanceLog({super.key});
+class RequestList extends StatefulWidget {
+  const RequestList({super.key});
 
   @override
-  State<AttendanceLog> createState() => _AttendanceLogState();
+  State<RequestList> createState() => _RequestListState();
 }
 
-class _AttendanceLogState extends State<AttendanceLog> {
+class _RequestListState extends State<RequestList> {
   late String selectedMonth;
   late String selectedYear;
   final ScrollController _scrollController = ScrollController();
@@ -34,71 +38,51 @@ class _AttendanceLogState extends State<AttendanceLog> {
   ];
   final List<String> years = ['2024', '2025', '2026'];
 
-  final List<AttendanceRecord> records = [
-    AttendanceRecord(
+  final List<RequestRecord> records = [
+    RequestRecord(
       date: DateTime(2026, 8, 6),
       checkIn: DateTime(2026, 8, 6, 9, 0),
       checkOut: DateTime(2026, 8, 6, 17, 0),
-      status: AttendanceStatus.leaves,
-      pending: true,
+      status: RequestType.leaves,
       statusDetail: 'Sick Leave',
+      currStatus: Status.approved,
     ),
-    AttendanceRecord(
-      date: DateTime(2026, 8, 5),
-      checkIn: DateTime(2026, 8, 5, 9, 0),
-      checkOut: null,
-      status: AttendanceStatus.inProgress,
-      statusDetail: 'No checkout yet',
-    ),
-    AttendanceRecord(
+    RequestRecord(
       date: DateTime(2026, 8, 5),
       checkIn: DateTime(2026, 8, 5, 19, 0),
       checkOut: DateTime(2026, 8, 5, 20, 0),
-      status: AttendanceStatus.overtime,
+      status: RequestType.overtime,
       statusDetail: '+1 Hours',
     ),
-    AttendanceRecord(
+    RequestRecord(
       date: DateTime(2026, 8, 4),
-      checkIn: DateTime(2026, 8, 4, 9, 15),
-      checkOut: DateTime(2026, 8, 4, 17, 0),
-      status: AttendanceStatus.late,
-      statusDetail: '15 mins',
+      checkIn: DateTime(2026, 8, 6, 9, 0),
+      checkOut: DateTime(2026, 8, 6, 17, 0),
+      status: RequestType.leaves,
+      statusDetail: 'Sick Leave',
     ),
-    AttendanceRecord(
+    RequestRecord(
       date: DateTime(2026, 8, 3),
-      checkIn: DateTime(2026, 8, 3, 9, 0),
-      checkOut: DateTime(2026, 8, 3, 17, 0),
-      status: AttendanceStatus.onTime,
+      checkIn: DateTime(2026, 8, 5, 19, 0),
+      checkOut: DateTime(2026, 8, 5, 20, 0),
+      status: RequestType.overtime,
+      statusDetail: '+1 Hours',
+      currStatus: Status.approved,
     ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 31),
-      checkIn: DateTime(2026, 7, 31, 9, 0),
-      checkOut: DateTime(2026, 7, 31, 17, 0),
-      status: AttendanceStatus.onTime,
+    RequestRecord(
+      date: DateTime(2026, 8, 2),
+      checkIn: DateTime(2026, 8, 6, 9, 0),
+      checkOut: DateTime(2026, 8, 6, 17, 0),
+      status: RequestType.leaves,
+      statusDetail: 'Sick Leave',
     ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 30),
-      checkIn: DateTime(2026, 7, 30, 9, 0),
-      checkOut: DateTime(2026, 7, 30, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 29),
-      checkIn: DateTime(2026, 7, 29, 9, 0),
-      checkOut: DateTime(2026, 7, 29, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 28),
-      checkIn: DateTime(2026, 7, 28, 9, 0),
-      checkOut: DateTime(2026, 7, 28, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 27),
-      checkIn: DateTime(2026, 7, 27, 9, 0),
-      checkOut: DateTime(2026, 7, 27, 17, 0),
-      status: AttendanceStatus.onTime,
+    RequestRecord(
+      date: DateTime(2026, 8, 1),
+      checkIn: DateTime(2026, 8, 5, 19, 0),
+      checkOut: DateTime(2026, 8, 5, 20, 0),
+      status: RequestType.overtime,
+      statusDetail: '+1 Hours',
+      currStatus: Status.denied,
     ),
   ];
 
@@ -195,6 +179,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Request Approval')),
       body: Column(
         children: [
           // Top Section
@@ -207,16 +192,8 @@ class _AttendanceLogState extends State<AttendanceLog> {
             child: SafeArea(
               bottom: false,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text(
-                    "Attendance Log",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Theme.of(context).colorScheme.inverseSurface,
-                    ),
-                  ),
                   Row(
                     children: [
                       // Month Dropdown
@@ -260,22 +237,20 @@ class _AttendanceLogState extends State<AttendanceLog> {
   }
 }
 
-enum AttendanceStatus { onTime, late, inProgress, overtime, leaves }
-
-class AttendanceRecord {
+class RequestRecord {
   final DateTime date;
   final DateTime? checkIn;
   final DateTime? checkOut;
-  final AttendanceStatus status;
-  final bool pending;
+  final RequestType status;
+  final Status currStatus;
   final String? statusDetail;
 
-  AttendanceRecord({
+  RequestRecord({
     required this.date,
     this.checkIn,
     this.checkOut,
     required this.status,
-    this.pending = false,
+    this.currStatus = Status.pending,
     this.statusDetail,
   });
 
@@ -305,7 +280,7 @@ class AttendanceRecord {
 }
 
 class AttendanceCard extends StatelessWidget {
-  final AttendanceRecord record;
+  final RequestRecord record;
 
   const AttendanceCard({super.key, required this.record});
 
@@ -321,12 +296,15 @@ class AttendanceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             onTap: () {
-              if (record.status == AttendanceStatus.leaves ||
-                  record.status == AttendanceStatus.overtime) {
+              if (record.status == RequestType.leaves ||
+                  record.status == RequestType.overtime) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const RequestDetail(),
+                    builder: (context) => RequestDetail(
+                      pageType: PageType.approval,
+                      status: record.currStatus,
+                    ),
                   ),
                 );
               }
@@ -378,16 +356,16 @@ class AttendanceCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: _getStatusBgColor(
                             record.status,
-                            record.pending,
+                            record.currStatus,
                           ),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          _getStatusText(record.status, record.pending),
+                          _getStatusText(record.status, record.currStatus),
                           style: TextStyle(
                             color: _getStatusTextColor(
                               record.status,
-                              record.pending,
+                              record.currStatus,
                             ),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -424,67 +402,40 @@ class AttendanceCard extends StatelessWidget {
     );
   }
 
-  String _getStatusText(AttendanceStatus status, bool pending) {
-    String result = "";
-    switch (status) {
-      case AttendanceStatus.onTime:
-        result += 'On Time';
-      case AttendanceStatus.late:
-        result += 'Late';
-      case AttendanceStatus.inProgress:
-        result += 'In Progress';
-      case AttendanceStatus.overtime:
-        result += 'Overtime';
-      case AttendanceStatus.leaves:
-        result += 'Leaves';
-    }
+  String _getStatusText(RequestType type, Status status) {
+    final typeName = switch (type) {
+      RequestType.overtime => 'Overtime',
+      RequestType.leaves => 'Leaves',
+    };
 
-    if (pending) {
-      result += ":Pending";
-    }
+    final statusName = switch (status) {
+      Status.approved => ':Approved',
+      Status.denied => ':Denied',
+      Status.pending => '',
+    };
 
-    return result;
+    return '$typeName$statusName';
   }
 
-  Color _getStatusBgColor(AttendanceStatus status, bool pending) {
-    if (pending &&
-        (status == AttendanceStatus.overtime ||
-            status == AttendanceStatus.leaves)) {
-      return Color(0xFFE2E8F0);
-    }
-
-    switch (status) {
-      case AttendanceStatus.onTime:
-        return Color(0xFFD1F4E0);
-      case AttendanceStatus.late:
-        return Color(0xFFFCE8E8);
-      case AttendanceStatus.inProgress:
-        return Color(0xFFFEF0C7);
-      case AttendanceStatus.overtime:
-        return Color(0xFFE0F2FE);
-      case AttendanceStatus.leaves:
-        return Color(0xFFF3E8FF);
-    }
+  Color _getStatusBgColor(RequestType type, Status status) {
+    return switch (status) {
+      Status.approved => const Color(0xFFDCFCE7), // Soft Green
+      Status.denied => const Color(0xFFFCE8E8), // Soft Red
+      Status.pending => switch (type) {
+        RequestType.overtime => const Color(0xFFE0F2FE), // Sky Blue
+        RequestType.leaves => const Color(0xFFF3E8FF), // Soft Purple
+      },
+    };
   }
 
-  Color _getStatusTextColor(AttendanceStatus status, bool pending) {
-    if (pending &&
-        (status == AttendanceStatus.overtime ||
-            status == AttendanceStatus.leaves)) {
-      return Color(0xFF475569);
-    }
-
-    switch (status) {
-      case AttendanceStatus.onTime:
-        return Color(0xFF16A34A);
-      case AttendanceStatus.late:
-        return Color(0xFFDC2626);
-      case AttendanceStatus.inProgress:
-        return Color(0xFFD97706);
-      case AttendanceStatus.overtime:
-        return Color(0xFF0284C7);
-      case AttendanceStatus.leaves:
-        return Color(0xFF9333EA);
-    }
+  Color _getStatusTextColor(RequestType type, Status status) {
+    return switch (status) {
+      Status.approved => const Color(0xFF15803D), // Deep Green
+      Status.denied => const Color(0xFFDC2626), // Dark Red
+      Status.pending => switch (type) {
+        RequestType.overtime => const Color(0xFF0284C7),
+        RequestType.leaves => const Color(0xFF9333EA),
+      },
+    };
   }
 }

@@ -2,6 +2,7 @@ import 'package:attandance/pages/attendance_log.dart';
 import 'package:attandance/pages/color_page.dart';
 import 'package:attandance/pages/home.dart';
 import 'package:attandance/pages/request.dart';
+import 'package:attandance/pages/request_list.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -15,9 +16,10 @@ class Attandance extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Attendance',
       theme: ThemeData(colorScheme: .fromSeed(seedColor: Color(0xFF325E6A))),
-      home: const HomePage(title: 'Flutter Demo Home Page'),
+      home: const HomePage(title: 'Attendance'),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -47,6 +49,28 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        actions: [
+          selectedIdx == pages.length - 1
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: IconButton(
+                    icon: Badge.count(
+                      count: 2,
+                      child: const Icon(Icons.approval),
+                    ),
+                    tooltip: 'Approval',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RequestList(),
+                        ),
+                      );
+                    },
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ],
       ),
 
       body: IndexedStack(index: selectedIdx, children: pages),

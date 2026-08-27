@@ -352,7 +352,6 @@ class _RequestState extends State<Request> {
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 0,
-          backgroundColor: Colors.white,
           bottom: const TabBar(
             labelColor: Color(0xFF0F172A),
             unselectedLabelColor: Colors.grey,
