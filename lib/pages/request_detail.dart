@@ -1,14 +1,19 @@
 import 'package:attandance/pages/request_list.dart';
 import 'package:flutter/material.dart';
 
-enum PageType { approval, detail }
+enum RequestPageType { approval, detail }
+
+enum RequestType { overtime, leaves }
 
 class RequestDetail extends StatefulWidget {
-  final PageType pageType;
+  final RequestPageType pageType;
+  final RequestType requestType;
   final Status status;
+
   const RequestDetail({
     super.key,
-    this.pageType = PageType.detail,
+    this.pageType = RequestPageType.detail,
+    required this.requestType,
     this.status = Status.pending,
   });
 
@@ -75,14 +80,16 @@ class _RequestDetailState extends State<RequestDetail> {
     final isDenied = widget.status == Status.denied;
 
     return Scaffold(
-      appBar: AppBar(title: Text("Attendance Detail")),
+      appBar: AppBar(title: Text("Request Detail")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('Leave Type'),
-            _buildValue(context, 'Annual Leave', icon: Icons.event_note),
+            if (widget.requestType == RequestType.leaves) ...[
+              _buildLabel('Leave Type'),
+              _buildValue(context, 'Annual Leave', icon: Icons.event_note),
+            ],
 
             const SizedBox(height: 20),
 
@@ -117,7 +124,7 @@ class _RequestDetailState extends State<RequestDetail> {
             ),
             const SizedBox(height: 40),
 
-            widget.pageType == PageType.approval
+            widget.pageType == RequestPageType.approval
                 ? SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),

@@ -11,8 +11,21 @@ class Attendance extends StatefulWidget {
 }
 
 class _AttendanceState extends State<Attendance> {
+  DateTime? clockIn;
+  DateTime? clockOut;
+  AttendanceType? attendanceType;
+
   @override
   Widget build(BuildContext context) {
+    clockIn = DateTime.now();
+    clockIn = DateTime(clockIn!.year, clockIn!.month, clockIn!.day, 9, 0);
+
+    if (clockIn == null) {
+      attendanceType = AttendanceType.checkin;
+    } else {
+      attendanceType = AttendanceType.checkout;
+    }
+
     final screenSize = MediaQuery.of(context).size;
 
     Widget buildMetric(
@@ -140,7 +153,8 @@ class _AttendanceState extends State<Attendance> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const SubmitAttendance(),
+                    builder: (context) =>
+                        SubmitAttendance(attendanceType: attendanceType),
                   ),
                 );
               },

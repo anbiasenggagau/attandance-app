@@ -1,4 +1,5 @@
 import 'package:attandance/pages/request_detail.dart';
+import 'package:attandance/pages/submit_attendance.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -323,10 +324,26 @@ class AttendanceCard extends StatelessWidget {
             onTap: () {
               if (record.status == AttendanceStatus.leaves ||
                   record.status == AttendanceStatus.overtime) {
+                RequestType requestType;
+                if (record.status == AttendanceStatus.leaves) {
+                  requestType = RequestType.leaves;
+                } else {
+                  requestType = RequestType.overtime;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const RequestDetail(),
+                    builder: (context) =>
+                        RequestDetail(requestType: requestType),
+                  ),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SubmitAttendance(
+                      pageType: AttendancePageType.detail,
+                    ),
                   ),
                 );
               }

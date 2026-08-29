@@ -2,8 +2,6 @@ import 'package:attandance/pages/request_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-enum RequestType { overtime, leaves }
-
 enum Status { approved, denied, pending }
 
 void main() {
@@ -40,10 +38,24 @@ class _RequestListState extends State<RequestList> {
 
   final List<RequestRecord> records = [
     RequestRecord(
+      date: DateTime(2026, 8, 30),
+      checkIn: DateTime(2026, 8, 6, 9, 0),
+      checkOut: DateTime(2026, 8, 6, 17, 0),
+      requestType: RequestType.leaves,
+      statusDetail: 'Sick Leave',
+    ),
+    RequestRecord(
       date: DateTime(2026, 8, 6),
       checkIn: DateTime(2026, 8, 6, 9, 0),
       checkOut: DateTime(2026, 8, 6, 17, 0),
-      status: RequestType.leaves,
+      requestType: RequestType.leaves,
+      statusDetail: 'Annual Leave',
+    ),
+    RequestRecord(
+      date: DateTime(2026, 8, 6),
+      checkIn: DateTime(2026, 8, 6, 9, 0),
+      checkOut: DateTime(2026, 8, 6, 17, 0),
+      requestType: RequestType.leaves,
       statusDetail: 'Sick Leave',
       currStatus: Status.approved,
     ),
@@ -51,21 +63,21 @@ class _RequestListState extends State<RequestList> {
       date: DateTime(2026, 8, 5),
       checkIn: DateTime(2026, 8, 5, 19, 0),
       checkOut: DateTime(2026, 8, 5, 20, 0),
-      status: RequestType.overtime,
+      requestType: RequestType.overtime,
       statusDetail: '+1 Hours',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 4),
       checkIn: DateTime(2026, 8, 6, 9, 0),
       checkOut: DateTime(2026, 8, 6, 17, 0),
-      status: RequestType.leaves,
+      requestType: RequestType.leaves,
       statusDetail: 'Sick Leave',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 3),
       checkIn: DateTime(2026, 8, 5, 19, 0),
       checkOut: DateTime(2026, 8, 5, 20, 0),
-      status: RequestType.overtime,
+      requestType: RequestType.overtime,
       statusDetail: '+1 Hours',
       currStatus: Status.approved,
     ),
@@ -73,14 +85,14 @@ class _RequestListState extends State<RequestList> {
       date: DateTime(2026, 8, 2),
       checkIn: DateTime(2026, 8, 6, 9, 0),
       checkOut: DateTime(2026, 8, 6, 17, 0),
-      status: RequestType.leaves,
+      requestType: RequestType.leaves,
       statusDetail: 'Sick Leave',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 1),
       checkIn: DateTime(2026, 8, 5, 19, 0),
       checkOut: DateTime(2026, 8, 5, 20, 0),
-      status: RequestType.overtime,
+      requestType: RequestType.overtime,
       statusDetail: '+1 Hours',
       currStatus: Status.denied,
     ),
@@ -179,7 +191,11 @@ class _RequestListState extends State<RequestList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Request Approval')),
+      appBar: AppBar(
+        title: const Text('Request Approval'),
+        scrolledUnderElevation: 0,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      ),
       body: Column(
         children: [
           // Top Section
@@ -241,7 +257,7 @@ class RequestRecord {
   final DateTime date;
   final DateTime? checkIn;
   final DateTime? checkOut;
-  final RequestType status;
+  final RequestType requestType;
   final Status currStatus;
   final String? statusDetail;
 
@@ -249,7 +265,7 @@ class RequestRecord {
     required this.date,
     this.checkIn,
     this.checkOut,
-    required this.status,
+    required this.requestType,
     this.currStatus = Status.pending,
     this.statusDetail,
   });
@@ -296,13 +312,14 @@ class AttendanceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             onTap: () {
-              if (record.status == RequestType.leaves ||
-                  record.status == RequestType.overtime) {
+              if (record.requestType == RequestType.leaves ||
+                  record.requestType == RequestType.overtime) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => RequestDetail(
-                      pageType: PageType.approval,
+                      pageType: RequestPageType.approval,
+                      requestType: record.requestType,
                       status: record.currStatus,
                     ),
                   ),
@@ -355,16 +372,16 @@ class AttendanceCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: _getStatusBgColor(
-                            record.status,
+                            record.requestType,
                             record.currStatus,
                           ),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          _getStatusText(record.status, record.currStatus),
+                          _getStatusText(record.requestType, record.currStatus),
                           style: TextStyle(
                             color: _getStatusTextColor(
-                              record.status,
+                              record.requestType,
                               record.currStatus,
                             ),
                             fontSize: 12,
