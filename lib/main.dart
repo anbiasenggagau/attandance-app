@@ -1,24 +1,45 @@
+import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/pages/attendance_log.dart';
 import 'package:attandance/pages/color_page.dart';
 import 'package:attandance/pages/home.dart';
+import 'package:attandance/pages/login.dart';
 import 'package:attandance/pages/request.dart';
 import 'package:attandance/pages/request_list.dart';
+import 'package:attandance/storage/token.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() async {
   runApp(const Attandance());
 }
 
 class Attandance extends StatelessWidget {
   const Attandance({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Attendance',
       theme: ThemeData(colorScheme: .fromSeed(seedColor: Color(0xFF325E6A))),
-      home: const HomePage(title: 'Attendance'),
+      home: FutureBuilder<String?>(
+        future: CentralApiCaller().setToken(null),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final token = snapshot.data;
+          if (token == null || token.isEmpty) {
+            return const LoginPage();
+          }
+
+          return HomePage(title: 'Attendance');
+        },
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -35,23 +56,17 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int selectedIdx = 2;
+  late final Set<int> _visitedIndices = {selectedIdx};
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [
-      ColorSchemePreviewPage(),
-      AttendanceLog(),
-      Attendance(),
-      Request(),
-    ];
-
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
         actions: [
-          selectedIdx == pages.length - 1
+          selectedIdx == 3
               ? Padding(
                   padding: const EdgeInsets.only(right: 16.0),
                   child: IconButton(
@@ -74,23 +89,35 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
 
-      body: IndexedStack(index: selectedIdx, children: pages),
+      body: IndexedStack(
+        index: selectedIdx,
+        children: [
+          _visitedIndices.contains(0)
+              ? const ColorSchemePreviewPage()
+              : const SizedBox.shrink(),
+          _visitedIndices.contains(1)
+              ? const AttendanceLog()
+              : const SizedBox.shrink(),
+          _visitedIndices.contains(2)
+              ? const Attendance()
+              : const SizedBox.shrink(),
+          _visitedIndices.contains(3)
+              ? const Request()
+              : const SizedBox.shrink(),
+        ],
+      ),
+      drawer: const AppDrawer(),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // <--- ADD THIS LINE
-        backgroundColor: Theme.of(
-          context,
-        ).colorScheme.surface, // Set the bar's background
-        selectedItemColor: Theme.of(
-          context,
-        ).colorScheme.primary, // Dark navy for selected
-        unselectedItemColor: Theme.of(
-          context,
-        ).colorScheme.secondary, // Grey for unselected
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(context).colorScheme.secondary,
         showUnselectedLabels: true,
         currentIndex: selectedIdx,
         onTap: (int idx) {
           setState(() {
             selectedIdx = idx;
+            _visitedIndices.add(idx);
           });
         },
         items: [
@@ -103,6 +130,91 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.event_note),
             label: "Request",
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AppDrawer extends StatelessWidget {
+  const AppDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Colors.blue),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                CircleAvatar(radius: 30, child: Icon(Icons.person, size: 35)),
+                SizedBox(height: 10),
+                Text(
+                  'Menu',
+                  style: TextStyle(color: Colors.white, fontSize: 20),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text('Account Info'),
+            onTap: () {
+              Navigator.pop(context); // Close the drawer
+              // Navigate to Account Info page
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Logout', style: TextStyle(color: Colors.red)),
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext dialogContext) {
+                  return AlertDialog(
+                    title: const Text('Logout'),
+                    content: const Text('Are you sure you want to log out?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(dialogContext), // Close dialog
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.pop(dialogContext); // Close dialog
+                          Navigator.pop(context); // Close drawer
+
+                          // Clear stored JWT token
+                          await TokenStorage.deleteToken();
+
+                          if (!context.mounted) return;
+
+                          // Navigate back to Login Screen and clear stack
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginPage(),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                        child: const Text(
+                          'Logout',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ],
       ),

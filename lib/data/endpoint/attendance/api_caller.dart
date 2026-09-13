@@ -1,0 +1,41 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'request.dart';
+import 'response.dart';
+
+class AttendanceApiCaller {
+  final String baseUrl;
+  final http.Client client;
+  final String? Function() getToken;
+
+  AttendanceApiCaller({
+    required this.baseUrl,
+    required this.getToken,
+    http.Client? client,
+  }) : client = client ?? http.Client();
+
+  Future<AttendanceResponse> getAttendance(AttendanceRequest? request) async {
+    var uri = Uri.parse('$baseUrl/attendances');
+    if (request != null) {
+      uri = uri.replace(queryParameters: request.toQueryParams());
+    }
+
+    final currentToken = getToken();
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      if (currentToken != null && currentToken.isNotEmpty)
+        'Authorization': 'Bearer $currentToken',
+    };
+
+    final response = await client.get(uri, headers: headers);
+    final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode == 200) {
+      return AttendanceResponse.fromJson(jsonBody, response.statusCode);
+    } else {
+      final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+      throw Exception(errorMsg);
+    }
+  }
+}

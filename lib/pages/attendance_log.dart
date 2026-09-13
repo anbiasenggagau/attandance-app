@@ -1,3 +1,6 @@
+import 'package:attandance/data/central_api_caller.dart';
+import 'package:attandance/data/endpoint/attendance/request.dart';
+import 'package:attandance/data/endpoint/attendance/response.dart';
 import 'package:attandance/pages/request_detail.dart';
 import 'package:attandance/pages/submit_attendance.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +20,17 @@ class AttendanceLog extends StatefulWidget {
 class _AttendanceLogState extends State<AttendanceLog> {
   late String selectedMonth;
   late String selectedYear;
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: true,
+  );
+  List<AttendanceRecord> _loadedRecords = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  int _currentPage = 1;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  static const int _pageSize = 20;
 
   final List<String> months = [
     'Jan',
@@ -35,73 +48,83 @@ class _AttendanceLogState extends State<AttendanceLog> {
   ];
   final List<String> years = ['2024', '2025', '2026'];
 
-  final List<AttendanceRecord> records = [
-    AttendanceRecord(
-      date: DateTime(2026, 8, 6),
-      checkIn: DateTime(2026, 8, 6, 9, 0),
-      checkOut: DateTime(2026, 8, 6, 17, 0),
-      status: AttendanceStatus.leaves,
-      pending: true,
-      statusDetail: 'Sick Leave',
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 8, 5),
-      checkIn: DateTime(2026, 8, 5, 9, 0),
-      checkOut: null,
-      status: AttendanceStatus.inProgress,
-      statusDetail: 'No checkout yet',
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 8, 5),
-      checkIn: DateTime(2026, 8, 5, 19, 0),
-      checkOut: DateTime(2026, 8, 5, 20, 0),
-      status: AttendanceStatus.overtime,
-      statusDetail: '+1 Hours',
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 8, 4),
-      checkIn: DateTime(2026, 8, 4, 9, 15),
-      checkOut: DateTime(2026, 8, 4, 17, 0),
-      status: AttendanceStatus.late,
-      statusDetail: '15 mins',
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 8, 3),
-      checkIn: DateTime(2026, 8, 3, 9, 0),
-      checkOut: DateTime(2026, 8, 3, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 31),
-      checkIn: DateTime(2026, 7, 31, 9, 0),
-      checkOut: DateTime(2026, 7, 31, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 30),
-      checkIn: DateTime(2026, 7, 30, 9, 0),
-      checkOut: DateTime(2026, 7, 30, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 29),
-      checkIn: DateTime(2026, 7, 29, 9, 0),
-      checkOut: DateTime(2026, 7, 29, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 28),
-      checkIn: DateTime(2026, 7, 28, 9, 0),
-      checkOut: DateTime(2026, 7, 28, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-    AttendanceRecord(
-      date: DateTime(2026, 7, 27),
-      checkIn: DateTime(2026, 7, 27, 9, 0),
-      checkOut: DateTime(2026, 7, 27, 17, 0),
-      status: AttendanceStatus.onTime,
-    ),
-  ];
+  CentralApiCaller apiCaller = CentralApiCaller();
+
+  Future<void> _initializeData() async {
+    try {
+      final data = await _getRecords();
+      if (!mounted) return;
+
+      setState(() {
+        _loadedRecords = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMoreRecords() async {
+    // Prevent duplicate API calls while loading or if end of data is reached
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final nextPage = _currentPage + 1;
+      final newRecords = await _getRecords(page: nextPage, pageSize: _pageSize);
+
+      if (!mounted) return;
+
+      setState(() {
+        _currentPage = nextPage;
+        _loadedRecords.addAll(newRecords);
+        _isLoadingMore = false;
+
+        // Stop fetching if API returned fewer items than page size
+        if (newRecords.length < _pageSize) {
+          _hasMore = false;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  Future<List<AttendanceRecord>> _getRecords({
+    int page = 1,
+    int pageSize = _pageSize,
+  }) async {
+    try {
+      final apiResponse = await apiCaller.attendance.getAttendance(
+        AttendanceRequest(page: page, pageSize: pageSize),
+      );
+
+      return apiResponse.data
+          .map((item) => AttendanceRecord.fromApiItem(item))
+          .toList();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unexpected error occured'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      rethrow;
+    }
+  }
 
   @override
   void initState() {
@@ -112,6 +135,8 @@ class _AttendanceLogState extends State<AttendanceLog> {
     selectedYear = now.year.toString();
 
     _scrollController.addListener(_onScroll);
+
+    _initializeData();
   }
 
   @override
@@ -121,14 +146,14 @@ class _AttendanceLogState extends State<AttendanceLog> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients || _loadedRecords.isEmpty) return;
     const double itemHeight = 94.0;
 
     // Get top card data as we scrolling
     int currentIndex = (_scrollController.offset / itemHeight).floor();
-    currentIndex = currentIndex.clamp(0, records.length - 1);
+    currentIndex = currentIndex.clamp(0, _loadedRecords.length - 1);
 
-    final record = records[currentIndex];
+    final record = _loadedRecords[currentIndex];
     final visibleMonth = record.monthString;
     final visibleYear = record.yearString;
 
@@ -137,6 +162,11 @@ class _AttendanceLogState extends State<AttendanceLog> {
         if (months.contains(visibleMonth)) selectedMonth = visibleMonth;
         if (years.contains(visibleYear)) selectedYear = visibleYear;
       });
+    }
+
+    const int fetchThreshold = 10;
+    if (currentIndex >= _loadedRecords.length - fetchThreshold) {
+      _loadMoreRecords();
     }
   }
 
@@ -193,6 +223,36 @@ class _AttendanceLogState extends State<AttendanceLog> {
     );
   }
 
+  Widget _buildLogContent() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(child: Text('Error: $_errorMessage'));
+    }
+
+    if (_loadedRecords.isEmpty) {
+      return const Center(child: Text('No attendance records found.'));
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16.0),
+      itemCount: _loadedRecords.length + (_isLoadingMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == _loadedRecords.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        return AttendanceCard(record: _loadedRecords[index]);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -245,40 +305,89 @@ class _AttendanceLogState extends State<AttendanceLog> {
           ),
 
           // Attendance Log Section
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.all(16.0),
-              itemCount: records.length,
-              itemBuilder: (context, index) {
-                return AttendanceCard(record: records[index]);
-              },
-            ),
-          ),
+          Expanded(child: _buildLogContent()),
         ],
       ),
     );
   }
 }
 
-enum AttendanceStatus { onTime, late, inProgress, overtime, leaves }
+enum LogType { onTime, late, inProgress, overtime, leaves }
 
 class AttendanceRecord {
+  // New API fields added
+  final int id;
+  final int userId;
+  final String userName;
+  final RequestData? requestData;
+  final AttendanceDetail? attendanceDetail;
+  final DateTime? createdAt;
+
+  // Existing UI fields
   final DateTime date;
   final DateTime? checkIn;
   final DateTime? checkOut;
-  final AttendanceStatus status;
+  final LogType status;
   final bool pending;
   final String? statusDetail;
 
   AttendanceRecord({
+    required this.id,
+    required this.userId,
+    required this.userName,
     required this.date,
     this.checkIn,
     this.checkOut,
     required this.status,
     this.pending = false,
     this.statusDetail,
+    this.requestData,
+    this.attendanceDetail,
+    this.createdAt,
   });
+
+  // Mapper factory from AttendanceItem -> AttendanceRecord
+  factory AttendanceRecord.fromApiItem(AttendanceItem item) {
+    // Parse date (Handles 'yyyy-MMM-dd' or standard ISO 8601 string)
+    DateTime parsedDate =
+        DateTime.tryParse(item.date) ??
+        _parseDateString(item.date) ??
+        DateTime.now();
+
+    // Map logType String to LogType Enum
+    LogType mappedStatus = LogType.values.firstWhere(
+      (e) => e.name.toLowerCase() == item.logType.toLowerCase(),
+      orElse: () => LogType.inProgress,
+    );
+
+    // Determine pending status from requestData
+    bool isPending = item.requestData?.requestStatus.toLowerCase() == 'pending';
+
+    return AttendanceRecord(
+      id: item.id,
+      userId: item.userId,
+      userName: item.userName,
+      date: parsedDate,
+      checkIn: item.checkIn,
+      checkOut: item.checkOut,
+      status: mappedStatus,
+      pending: isPending,
+      statusDetail: item.requestData?.note,
+      requestData: item.requestData,
+      attendanceDetail: item.attendanceDetail,
+      createdAt: item.createdAt.isNotEmpty
+          ? DateTime.tryParse(item.createdAt)
+          : null,
+    );
+  }
+
+  static DateTime? _parseDateString(String dateStr) {
+    try {
+      return DateFormat('yyyy-MMM-dd').parse(dateStr);
+    } catch (_) {
+      return null;
+    }
+  }
 
   String get formattedDate => DateFormat('EEE, dd MMM yyyy').format(date);
 
@@ -297,7 +406,6 @@ class AttendanceRecord {
     }
 
     final duration = checkOut!.difference(checkIn!);
-
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
 
@@ -322,10 +430,10 @@ class AttendanceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             onTap: () {
-              if (record.status == AttendanceStatus.leaves ||
-                  record.status == AttendanceStatus.overtime) {
+              if (record.status == LogType.leaves ||
+                  record.status == LogType.overtime) {
                 RequestType requestType;
-                if (record.status == AttendanceStatus.leaves) {
+                if (record.status == LogType.leaves) {
                   requestType = RequestType.leaves;
                 } else {
                   requestType = RequestType.overtime;
@@ -441,18 +549,18 @@ class AttendanceCard extends StatelessWidget {
     );
   }
 
-  String _getStatusText(AttendanceStatus status, bool pending) {
+  String _getStatusText(LogType status, bool pending) {
     String result = "";
     switch (status) {
-      case AttendanceStatus.onTime:
+      case LogType.onTime:
         result += 'On Time';
-      case AttendanceStatus.late:
+      case LogType.late:
         result += 'Late';
-      case AttendanceStatus.inProgress:
+      case LogType.inProgress:
         result += 'In Progress';
-      case AttendanceStatus.overtime:
+      case LogType.overtime:
         result += 'Overtime';
-      case AttendanceStatus.leaves:
+      case LogType.leaves:
         result += 'Leaves';
     }
 
@@ -463,44 +571,40 @@ class AttendanceCard extends StatelessWidget {
     return result;
   }
 
-  Color _getStatusBgColor(AttendanceStatus status, bool pending) {
-    if (pending &&
-        (status == AttendanceStatus.overtime ||
-            status == AttendanceStatus.leaves)) {
+  Color _getStatusBgColor(LogType status, bool pending) {
+    if (pending && (status == LogType.overtime || status == LogType.leaves)) {
       return Color(0xFFE2E8F0);
     }
 
     switch (status) {
-      case AttendanceStatus.onTime:
+      case LogType.onTime:
         return Color(0xFFD1F4E0);
-      case AttendanceStatus.late:
+      case LogType.late:
         return Color(0xFFFCE8E8);
-      case AttendanceStatus.inProgress:
+      case LogType.inProgress:
         return Color(0xFFFEF0C7);
-      case AttendanceStatus.overtime:
+      case LogType.overtime:
         return Color(0xFFE0F2FE);
-      case AttendanceStatus.leaves:
+      case LogType.leaves:
         return Color(0xFFF3E8FF);
     }
   }
 
-  Color _getStatusTextColor(AttendanceStatus status, bool pending) {
-    if (pending &&
-        (status == AttendanceStatus.overtime ||
-            status == AttendanceStatus.leaves)) {
+  Color _getStatusTextColor(LogType status, bool pending) {
+    if (pending && (status == LogType.overtime || status == LogType.leaves)) {
       return Color(0xFF475569);
     }
 
     switch (status) {
-      case AttendanceStatus.onTime:
+      case LogType.onTime:
         return Color(0xFF16A34A);
-      case AttendanceStatus.late:
+      case LogType.late:
         return Color(0xFFDC2626);
-      case AttendanceStatus.inProgress:
+      case LogType.inProgress:
         return Color(0xFFD97706);
-      case AttendanceStatus.overtime:
+      case LogType.overtime:
         return Color(0xFF0284C7);
-      case AttendanceStatus.leaves:
+      case LogType.leaves:
         return Color(0xFF9333EA);
     }
   }

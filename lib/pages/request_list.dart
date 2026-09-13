@@ -39,59 +39,59 @@ class _RequestListState extends State<RequestList> {
   final List<RequestRecord> records = [
     RequestRecord(
       date: DateTime(2026, 8, 30),
-      checkIn: DateTime(2026, 8, 6, 9, 0),
-      checkOut: DateTime(2026, 8, 6, 17, 0),
+      startTime: DateTime(2026, 8, 6, 9, 0),
+      endTime: DateTime(2026, 8, 6, 17, 0),
       requestType: RequestType.leaves,
       statusDetail: 'Sick Leave',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 6),
-      checkIn: DateTime(2026, 8, 6, 9, 0),
-      checkOut: DateTime(2026, 8, 6, 17, 0),
+      startTime: DateTime(2026, 8, 6, 9, 0),
+      endTime: DateTime(2026, 8, 6, 17, 0),
       requestType: RequestType.leaves,
       statusDetail: 'Annual Leave',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 6),
-      checkIn: DateTime(2026, 8, 6, 9, 0),
-      checkOut: DateTime(2026, 8, 6, 17, 0),
+      startTime: DateTime(2026, 8, 6, 9, 0),
+      endTime: DateTime(2026, 8, 6, 17, 0),
       requestType: RequestType.leaves,
       statusDetail: 'Sick Leave',
       currStatus: Status.approved,
     ),
     RequestRecord(
       date: DateTime(2026, 8, 5),
-      checkIn: DateTime(2026, 8, 5, 19, 0),
-      checkOut: DateTime(2026, 8, 5, 20, 0),
+      startTime: DateTime(2026, 8, 5, 19, 0),
+      endTime: DateTime(2026, 8, 5, 20, 0),
       requestType: RequestType.overtime,
       statusDetail: '+1 Hours',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 4),
-      checkIn: DateTime(2026, 8, 6, 9, 0),
-      checkOut: DateTime(2026, 8, 6, 17, 0),
+      startTime: DateTime(2026, 8, 6, 9, 0),
+      endTime: DateTime(2026, 8, 6, 17, 0),
       requestType: RequestType.leaves,
       statusDetail: 'Sick Leave',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 3),
-      checkIn: DateTime(2026, 8, 5, 19, 0),
-      checkOut: DateTime(2026, 8, 5, 20, 0),
+      startTime: DateTime(2026, 8, 5, 19, 0),
+      endTime: DateTime(2026, 8, 5, 20, 0),
       requestType: RequestType.overtime,
       statusDetail: '+1 Hours',
       currStatus: Status.approved,
     ),
     RequestRecord(
       date: DateTime(2026, 8, 2),
-      checkIn: DateTime(2026, 8, 6, 9, 0),
-      checkOut: DateTime(2026, 8, 6, 17, 0),
+      startTime: DateTime(2026, 8, 6, 9, 0),
+      endTime: DateTime(2026, 8, 6, 17, 0),
       requestType: RequestType.leaves,
       statusDetail: 'Sick Leave',
     ),
     RequestRecord(
       date: DateTime(2026, 8, 1),
-      checkIn: DateTime(2026, 8, 5, 19, 0),
-      checkOut: DateTime(2026, 8, 5, 20, 0),
+      startTime: DateTime(2026, 8, 5, 19, 0),
+      endTime: DateTime(2026, 8, 5, 20, 0),
       requestType: RequestType.overtime,
       statusDetail: '+1 Hours',
       currStatus: Status.denied,
@@ -255,16 +255,16 @@ class _RequestListState extends State<RequestList> {
 
 class RequestRecord {
   final DateTime date;
-  final DateTime? checkIn;
-  final DateTime? checkOut;
+  final DateTime? startTime;
+  final DateTime? endTime;
   final RequestType requestType;
   final Status currStatus;
   final String? statusDetail;
 
   RequestRecord({
     required this.date,
-    this.checkIn,
-    this.checkOut,
+    this.startTime,
+    this.endTime,
     required this.requestType,
     this.currStatus = Status.pending,
     this.statusDetail,
@@ -272,21 +272,21 @@ class RequestRecord {
 
   String get formattedDate => DateFormat('EEE, dd MMM yyyy').format(date);
 
-  String get formattedCheckIn =>
-      checkIn != null ? DateFormat('hh:mm a').format(checkIn!) : '--:--';
+  String get formattedStartTime =>
+      startTime != null ? DateFormat('hh:mm a').format(startTime!) : '--:--';
 
-  String get formattedCheckOut =>
-      checkOut != null ? DateFormat('hh:mm a').format(checkOut!) : '--:--';
+  String get formattedEndTime =>
+      endTime != null ? DateFormat('hh:mm a').format(endTime!) : '--:--';
 
   String get monthString => DateFormat('MMM').format(date);
   String get yearString => DateFormat('yyyy').format(date);
 
   String get formattedDuration {
-    if (checkIn == null || checkOut == null) {
+    if (startTime == null || endTime == null) {
       return '--';
     }
 
-    final duration = checkOut!.difference(checkIn!);
+    final duration = endTime!.difference(startTime!);
 
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
@@ -303,7 +303,7 @@ class AttendanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeString =
-        '${record.formattedCheckIn} - ${record.formattedCheckOut}';
+        '${record.formattedStartTime} - ${record.formattedEndTime}';
 
     return Column(
       children: [
