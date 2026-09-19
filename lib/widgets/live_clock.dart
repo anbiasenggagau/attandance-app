@@ -32,15 +32,17 @@ class LiveClockWidget extends StatelessWidget {
   }
 
   Widget _buildClockUI(DateTime time) {
+    final localTime = time.toLocal();
+
     // Format: HH:mm:ss
     final timeString =
-        '${time.hour.toString().padLeft(2, '0')}:'
-        '${time.minute.toString().padLeft(2, '0')}:'
-        '${time.second.toString().padLeft(2, '0')}';
+        '${localTime.hour.toString().padLeft(2, '0')}:'
+        '${localTime.minute.toString().padLeft(2, '0')}:'
+        '${localTime.second.toString().padLeft(2, '0')}';
 
     // Format: Month DD YYYY Day
     final dateString =
-        '${_monthName(time.month)} ${time.day.toString().padLeft(2, '0')} ${time.year} ${_weekdayName(time.weekday)}';
+        '${_monthName(localTime.month)} ${localTime.day.toString().padLeft(2, '0')} ${localTime.year} ${_weekdayName(localTime.weekday)}';
 
     return Column(
       mainAxisSize: MainAxisSize.min,

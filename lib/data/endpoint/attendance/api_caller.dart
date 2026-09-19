@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'request.dart';
 import 'response.dart';
@@ -36,6 +37,58 @@ class AttendanceApiCaller {
     } else {
       final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
       throw Exception(errorMsg);
+    }
+  }
+
+  Future<CurrentAttendance> getCurrentAttendance() async {
+    try {
+      var uri = Uri.parse('$baseUrl/attendances/today');
+
+      final currentToken = getToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (currentToken != null && currentToken.isNotEmpty)
+          'Authorization': 'Bearer $currentToken',
+      };
+
+      final response = await client.get(uri, headers: headers);
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) {
+        return CurrentAttendance.fromJson(jsonBody, response.statusCode);
+      } else {
+        final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      final message = "Failed to retrieve data: ${e.toString()} ";
+      throw Exception(message);
+    }
+  }
+
+  Future<Uint8List> getAttendancePhoto(String photoPath) async {
+    final uri = Uri.parse('$baseUrl$photoPath');
+    final token = getToken();
+
+    final headers = <String, String>{
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    final response = await client.get(uri, headers: headers);
+    final contentType = response.headers['content-type'] ?? '';
+
+    if (contentType.contains('application/json')) {
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      final errorMsg = jsonBody['message'] ?? 'Failed to retrieve photo';
+      throw Exception(errorMsg);
+    }
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      throw Exception(
+        'Failed to load photo (Status Code: ${response.statusCode})',
+      );
     }
   }
 }

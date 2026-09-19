@@ -1,19 +1,41 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:attandance/widgets/live_clock.dart';
+import 'package:attandance/data/central_api_caller.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 enum AttendancePageType { attendance, detail }
 
 enum AttendanceType { checkin, checkout }
 
+class AttendanceInfo {
+  final DateTime? time;
+  final num latitude;
+  final num longitude;
+  final String photo;
+
+  AttendanceInfo({
+    this.time,
+    this.latitude = 0,
+    this.longitude = 0,
+    this.photo = "",
+  });
+}
+
 class SubmitAttendance extends StatefulWidget {
   final AttendancePageType pageType;
-  final AttendanceType? attendanceType;
+  final AttendanceType attendanceType;
+  final AttendanceInfo checkInDetail;
+  final AttendanceInfo checkOutDetail;
 
   const SubmitAttendance({
     super.key,
     this.pageType = AttendancePageType.attendance,
-    this.attendanceType,
+    this.attendanceType = AttendanceType.checkin,
+    required this.checkInDetail,
+    required this.checkOutDetail,
   });
 
   @override
@@ -22,8 +44,205 @@ class SubmitAttendance extends StatefulWidget {
 
 class _SubmitAttendanceState extends State<SubmitAttendance> {
   File? _capturedImage;
-  final double _latitude = -6.4025;
-  final double _longitude = 106.7942;
+  double? _latitude;
+  double? _longitude;
+  CentralApiCaller apiCaller = CentralApiCaller();
+  final ImagePicker _picker = ImagePicker();
+
+  // In-memory cache to prevent redundant API calls during the app session
+  static final Map<String, Uint8List> _photoCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _prefetchPhotos();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.pageType == AttendancePageType.attendance) {
+        _initializeLocationServices();
+      }
+    });
+  }
+
+  Future<void> _initializeLocationServices() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        // Prompt user to allow location access
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Location permission is required for attendance.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          _showPermissionSettingsDialog();
+        }
+        return;
+      }
+
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled && mounted) {
+        _showGpsDialog();
+      }
+    } catch (e) {
+      debugPrint('Error initializing location services: $e');
+    }
+  }
+
+  void _showGpsDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.location_off, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('GPS Required'),
+            ],
+          ),
+          content: const Text(
+            'Please turn on Location Services (GPS) on your device to proceed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await Geolocator.openLocationSettings();
+              },
+              child: const Text('Turn On GPS'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPermissionSettingsDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Permission Required'),
+          content: const Text(
+            'Location permission is permanently denied. Please enable it in system settings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await Geolocator.openAppSettings();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _prefetchPhotos() {
+    if (widget.checkInDetail.photo != "") {
+      _getAttendancePhoto(widget.checkInDetail.photo);
+    }
+    if (widget.checkOutDetail.photo != "") {
+      _getAttendancePhoto(widget.checkOutDetail.photo);
+    }
+  }
+
+  Future<Uint8List?> _getAttendancePhoto(String photoPath) async {
+    if (photoPath.isEmpty) return null;
+
+    // Return cached bytes if image is already fetched
+    if (_photoCache.containsKey(photoPath)) {
+      return _photoCache[photoPath];
+    }
+
+    try {
+      final bytes = await apiCaller.attendance.getAttendancePhoto(photoPath);
+      _photoCache[photoPath] = bytes;
+      return bytes;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Helper method to handle Location Permissions & GPS retrieval
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('Location services are disabled on your device.');
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception('Location permissions are denied.');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception('Location permissions are permanently denied.');
+    }
+
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    );
+  }
+
+  // Updated _takePhoto method
+  Future<void> _takePhoto() async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+
+      if (photo != null) {
+        // Fetch GPS position immediately after photo capture
+        final Position position = await _determinePosition();
+
+        if (mounted) {
+          setState(() {
+            _capturedImage = File(photo.path);
+            _latitude = position.latitude;
+            _longitude = position.longitude;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to capture photo/location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,20 +273,36 @@ class _SubmitAttendanceState extends State<SubmitAttendance> {
         ),
         body: TabBarView(
           children: [
-            _buildAttendanceForm(isCheckIn: true),
-            _buildAttendanceForm(isCheckIn: false),
+            _buildAttendanceForm(
+              isCheckIn: true,
+              attendanceDetail: widget.checkInDetail,
+            ),
+            _buildAttendanceForm(
+              isCheckIn: false,
+              attendanceDetail: widget.checkOutDetail,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAttendanceForm({required bool isCheckIn}) {
+  Widget _buildAttendanceForm({
+    required bool isCheckIn,
+    required AttendanceInfo attendanceDetail,
+  }) {
     final bool showActionButtons =
         widget.pageType == AttendancePageType.attendance &&
-        (widget.attendanceType == null ||
-            (isCheckIn && widget.attendanceType == AttendanceType.checkin) ||
+        ((isCheckIn && widget.attendanceType == AttendanceType.checkin) ||
             (!isCheckIn && widget.attendanceType == AttendanceType.checkout));
+
+    // Displays newly captured lat/lng if available, falling back to passed detail
+    final currentLat = (showActionButtons && _latitude != null)
+        ? _latitude
+        : attendanceDetail.latitude;
+    final currentLng = (showActionButtons && _longitude != null)
+        ? _longitude
+        : attendanceDetail.longitude;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -76,39 +311,31 @@ class _SubmitAttendanceState extends State<SubmitAttendance> {
         spacing: 20,
         children: [
           widget.pageType == AttendancePageType.detail
-              ? LiveClockWidget(timeStamp: DateTime(2026, 8, 1, 9))
+              ? LiveClockWidget(timeStamp: attendanceDetail.time)
               : const LiveClockWidget(),
 
-          // Image Box
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(16.0),
-              border: Border.all(color: Colors.grey[400]!),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(15.0),
-              child: _capturedImage != null
-                  ? Image.file(_capturedImage!, fit: BoxFit.cover)
-                  : const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_alt, size: 64, color: Colors.grey),
-                        SizedBox(height: 8),
-                        Text(
-                          'This will show your photo',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(16.0),
+                border: Border.all(color: Colors.grey[400]!),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15.0),
+                child: _buildImageWidget(
+                  showActionButtons,
+                  attendanceDetail.photo,
+                ),
+              ),
             ),
           ),
 
           // Capture / Recapture Photo Button
           if (showActionButtons)
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: _takePhoto,
               icon: _capturedImage == null ? null : const Icon(Icons.refresh),
               label: Text(
                 _capturedImage == null ? 'Capture Photo' : 'Recapture Photo',
@@ -140,8 +367,8 @@ class _SubmitAttendanceState extends State<SubmitAttendance> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text('Lat: $_latitude', style: const TextStyle(fontSize: 16)),
-                Text('Lng: $_longitude', style: const TextStyle(fontSize: 16)),
+                Text('Lat: $currentLat', style: const TextStyle(fontSize: 16)),
+                Text('Lng: $currentLng', style: const TextStyle(fontSize: 16)),
               ],
             ),
           ),
@@ -165,6 +392,55 @@ class _SubmitAttendanceState extends State<SubmitAttendance> {
             ),
         ],
       ),
+    );
+  }
+
+  // Helper widget to handle display prioritization (Captured File > Remote Photo > Placeholder)
+  Widget _buildImageWidget(bool isFormActive, String? photoPath) {
+    if (isFormActive && _capturedImage != null) {
+      return Image.file(
+        _capturedImage!,
+        fit: BoxFit.contain,
+        width: double.infinity,
+      );
+    }
+
+    if (photoPath != null && photoPath.isNotEmpty) {
+      return FutureBuilder<Uint8List?>(
+        future: _getAttendancePhoto(photoPath),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasData && snapshot.data != null) {
+            return Image.memory(
+              snapshot.data!,
+              fit: BoxFit.contain,
+              width: double.infinity,
+            );
+          }
+          return const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, size: 48, color: Colors.grey),
+              SizedBox(height: 8),
+              Text(
+                'Failed to load photo',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.camera_alt, size: 64, color: Colors.grey),
+        SizedBox(height: 8),
+        Text('This will show your photo', style: TextStyle(color: Colors.grey)),
+      ],
     );
   }
 }

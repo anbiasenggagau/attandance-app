@@ -1,7 +1,9 @@
+import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/pages/submit_attendance.dart';
 import 'package:attandance/widgets/clock_action_button.dart';
 import 'package:attandance/widgets/live_clock.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class Attendance extends StatefulWidget {
   const Attendance({super.key});
@@ -11,19 +13,60 @@ class Attendance extends StatefulWidget {
 }
 
 class _AttendanceState extends State<Attendance> {
-  DateTime? clockIn;
-  DateTime? clockOut;
-  AttendanceType? attendanceType;
+  bool _isLoading = true;
+  AttendanceInfo checkIn = AttendanceInfo();
+  AttendanceInfo checkOut = AttendanceInfo();
+  AttendanceType attendanceType = AttendanceType.checkin;
+
+  CentralApiCaller apiCaller = CentralApiCaller();
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentAttendance();
+  }
+
+  Future<void> _getCurrentAttendance() async {
+    try {
+      final apiResponse = await apiCaller.attendance.getCurrentAttendance();
+      final data = apiResponse.data;
+
+      if (data != null) {
+        attendanceType = AttendanceType.checkout;
+        checkIn = AttendanceInfo(
+          latitude: data.checkInDetail!.latitude,
+          longitude: data.checkInDetail!.longitude,
+          photo: data.checkInDetail!.photo,
+          time: data.checkIn,
+        );
+        checkOut = AttendanceInfo();
+      } else {
+        attendanceType = AttendanceType.checkin;
+        checkIn = AttendanceInfo();
+        checkOut = AttendanceInfo();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unexpected error occurred'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    clockIn = DateTime.now();
-    clockIn = DateTime(clockIn!.year, clockIn!.month, clockIn!.day, 9, 0);
-
-    if (clockIn == null) {
-      attendanceType = AttendanceType.checkin;
-    } else {
-      attendanceType = AttendanceType.checkout;
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final screenSize = MediaQuery.of(context).size;
@@ -72,7 +115,10 @@ class _AttendanceState extends State<Attendance> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Top Part: Live Clock
-          Container(margin: EdgeInsets.all(16), child: LiveClockWidget()),
+          Container(
+            margin: const EdgeInsets.all(16),
+            child: const LiveClockWidget(),
+          ),
 
           // Middle Bottom Part: Current Day
           Container(
@@ -113,7 +159,9 @@ class _AttendanceState extends State<Attendance> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        "In Progress",
+                        checkIn.time == null
+                            ? "Submit Attendance"
+                            : "In Progress",
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -129,12 +177,26 @@ class _AttendanceState extends State<Attendance> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    buildMetric(context, "Clock In", "09:00", Icons.login),
-                    buildMetric(context, "Clock Out", "--", Icons.logout),
+                    buildMetric(
+                      context,
+                      "Check In",
+                      checkIn.time == null
+                          ? "--:--"
+                          : DateFormat("HH:mm").format(checkIn.time!),
+                      Icons.login,
+                    ),
+                    buildMetric(
+                      context,
+                      "Check Out",
+                      checkOut.time == null
+                          ? "--:--"
+                          : DateFormat("HH:mm").format(checkOut.time!),
+                      Icons.logout,
+                    ),
                     buildMetric(
                       context,
                       "Location",
-                      "Tokyo",
+                      "Jakarta",
                       Icons.location_on_outlined,
                     ),
                   ],
@@ -145,16 +207,21 @@ class _AttendanceState extends State<Attendance> {
 
           // Clock Action Button
           Container(
-            margin: EdgeInsets.all(16),
+            margin: const EdgeInsets.all(16),
             child: ClockActionButton(
               icon: Icons.touch_app_outlined,
-              label: "Check Out",
+              label: attendanceType == AttendanceType.checkout
+                  ? "Check Out"
+                  : "Check In",
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        SubmitAttendance(attendanceType: attendanceType),
+                    builder: (context) => SubmitAttendance(
+                      attendanceType: attendanceType,
+                      checkInDetail: checkIn,
+                      checkOutDetail: checkOut,
+                    ),
                   ),
                 );
               },

@@ -315,21 +315,19 @@ class _AttendanceLogState extends State<AttendanceLog> {
 enum LogType { onTime, late, inProgress, overtime, leaves }
 
 class AttendanceRecord {
-  // New API fields added
   final int id;
   final int userId;
   final String userName;
-  final RequestData? requestData;
-  final AttendanceDetail? attendanceDetail;
-  final DateTime? createdAt;
-
-  // Existing UI fields
   final DateTime date;
   final DateTime? checkIn;
   final DateTime? checkOut;
   final LogType status;
   final bool pending;
   final String? statusDetail;
+  final RequestData? requestData;
+  final AttendanceInfo checkInDetail;
+  final AttendanceInfo checkOutDetail;
+  final DateTime? createdAt;
 
   AttendanceRecord({
     required this.id,
@@ -342,7 +340,8 @@ class AttendanceRecord {
     this.pending = false,
     this.statusDetail,
     this.requestData,
-    this.attendanceDetail,
+    required this.checkInDetail,
+    required this.checkOutDetail,
     this.createdAt,
   });
 
@@ -374,7 +373,22 @@ class AttendanceRecord {
       pending: isPending,
       statusDetail: item.requestData?.note,
       requestData: item.requestData,
-      attendanceDetail: item.attendanceDetail,
+      checkInDetail: item.checkInDetail == null
+          ? AttendanceInfo()
+          : AttendanceInfo(
+              time: item.checkIn,
+              photo: item.checkInDetail!.photo,
+              latitude: item.checkInDetail!.latitude,
+              longitude: item.checkInDetail!.longitude,
+            ),
+      checkOutDetail: item.checkOutDetail == null
+          ? AttendanceInfo()
+          : AttendanceInfo(
+              time: item.checkOut,
+              photo: item.checkOutDetail!.photo,
+              latitude: item.checkOutDetail!.latitude,
+              longitude: item.checkOutDetail!.longitude,
+            ),
       createdAt: item.createdAt.isNotEmpty
           ? DateTime.tryParse(item.createdAt)
           : null,
@@ -449,8 +463,10 @@ class AttendanceCard extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const SubmitAttendance(
+                    builder: (context) => SubmitAttendance(
                       pageType: AttendancePageType.detail,
+                      checkInDetail: record.checkInDetail,
+                      checkOutDetail: record.checkOutDetail,
                     ),
                   ),
                 );

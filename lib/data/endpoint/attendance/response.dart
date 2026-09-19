@@ -52,11 +52,12 @@ class AttendanceItem {
   final int userId;
   final String userName;
   final String date;
-  final DateTime? checkIn; // Typed as DateTime?
-  final DateTime? checkOut; // Typed as DateTime?
+  final DateTime? checkIn;
+  final DateTime? checkOut;
   final String logType;
   final String createdAt;
-  final AttendanceDetail? attendanceDetail;
+  final AttendanceDetail? checkInDetail;
+  final AttendanceDetail? checkOutDetail;
 
   AttendanceItem({
     required this.id,
@@ -68,7 +69,8 @@ class AttendanceItem {
     this.checkOut,
     required this.logType,
     required this.createdAt,
-    this.attendanceDetail,
+    this.checkInDetail,
+    this.checkOutDetail,
   });
 
   factory AttendanceItem.fromJson(Map<String, dynamic> json) {
@@ -88,9 +90,14 @@ class AttendanceItem {
           : null,
       logType: json['logType'] as String? ?? '',
       createdAt: json['createdAt'] as String? ?? '',
-      attendanceDetail: json['attendanceDetail'] != null
+      checkInDetail: json['checkInDetail'] != null
           ? AttendanceDetail.fromJson(
-              json['attendanceDetail'] as Map<String, dynamic>,
+              json['checkInDetail'] as Map<String, dynamic>,
+            )
+          : null,
+      checkOutDetail: json['checkOutDetail'] != null
+          ? AttendanceDetail.fromJson(
+              json['checkOutDetail'] as Map<String, dynamic>,
             )
           : null,
     );
@@ -134,6 +141,31 @@ class AttendanceResponse extends BaseResponse {
       pageSize: json['pageSize'] as int? ?? 10,
       totalItems: json['totalItems'] as int? ?? 0,
       totalPages: json['totalPages'] as int? ?? 0,
+    );
+  }
+}
+
+class CurrentAttendance extends BaseResponse {
+  final AttendanceItem? data; // 1. Added '?' to make it nullable
+
+  CurrentAttendance({
+    required super.statusCode,
+    required super.message,
+    this.data, // 2. Removed 'required' (or use 'required this.data' if you prefer explicit nulls)
+  });
+
+  factory CurrentAttendance.fromJson(
+    Map<String, dynamic> json,
+    int statusCode,
+  ) {
+    return CurrentAttendance(
+      statusCode: statusCode,
+      message: json['message'] as String? ?? '',
+      data: json['data'] != null
+          ? AttendanceItem.fromJson(
+              json['data'] as Map<String, dynamic>,
+            ) // 3. Pass json['data'] specifically
+          : null,
     );
   }
 }
