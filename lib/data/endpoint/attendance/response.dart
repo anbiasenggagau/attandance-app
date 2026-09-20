@@ -110,6 +110,8 @@ class AttendanceResponse extends BaseResponse {
   final int pageSize;
   final int totalItems;
   final int totalPages;
+  final bool hasPrevPage;
+  final bool hasNextPage;
 
   AttendanceResponse({
     required super.statusCode,
@@ -119,6 +121,8 @@ class AttendanceResponse extends BaseResponse {
     required this.pageSize,
     required this.totalItems,
     required this.totalPages,
+    this.hasPrevPage = false,
+    this.hasNextPage = false,
   });
 
   factory AttendanceResponse.fromJson(
@@ -141,6 +145,8 @@ class AttendanceResponse extends BaseResponse {
       pageSize: json['pageSize'] as int? ?? 10,
       totalItems: json['totalItems'] as int? ?? 0,
       totalPages: json['totalPages'] as int? ?? 0,
+      hasPrevPage: json['hasPrevPage'] as bool? ?? false,
+      hasNextPage: json['hasNextPage'] as bool? ?? false,
     );
   }
 }
@@ -151,7 +157,7 @@ class CurrentAttendance extends BaseResponse {
   CurrentAttendance({
     required super.statusCode,
     required super.message,
-    this.data, // 2. Removed 'required' (or use 'required this.data' if you prefer explicit nulls)
+    this.data,
   });
 
   factory CurrentAttendance.fromJson(
@@ -162,10 +168,35 @@ class CurrentAttendance extends BaseResponse {
       statusCode: statusCode,
       message: json['message'] as String? ?? '',
       data: json['data'] != null
-          ? AttendanceItem.fromJson(
-              json['data'] as Map<String, dynamic>,
-            ) // 3. Pass json['data'] specifically
+          ? AttendanceItem.fromJson(json['data'] as Map<String, dynamic>)
           : null,
+    );
+  }
+}
+
+class LogOption extends BaseResponse {
+  final Map<String, List<String>>? data;
+
+  LogOption({
+    required super.statusCode,
+    required super.message,
+    this.data,
+  }); // Added semicolon here
+
+  factory LogOption.fromJson(Map<String, dynamic> json, int statusCode) {
+    Map<String, List<String>>? parsedData;
+
+    if (json["data"] != null && json["data"] is Map) {
+      parsedData = (json["data"] as Map<String, dynamic>).map(
+        (key, value) =>
+            MapEntry(key, (value as List).map((e) => e.toString()).toList()),
+      );
+    }
+
+    return LogOption(
+      statusCode: statusCode,
+      message: json["message"] as String? ?? "",
+      data: parsedData,
     );
   }
 }

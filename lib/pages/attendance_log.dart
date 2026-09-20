@@ -10,6 +10,8 @@ void main() {
   runApp(const AttendanceLog());
 }
 
+enum LogType { onTime, late, inProgress, overtime, leaves }
+
 class AttendanceLog extends StatefulWidget {
   const AttendanceLog({super.key});
 
@@ -18,21 +20,7 @@ class AttendanceLog extends StatefulWidget {
 }
 
 class _AttendanceLogState extends State<AttendanceLog> {
-  late String selectedMonth;
-  late String selectedYear;
-  final ScrollController _scrollController = ScrollController(
-    keepScrollOffset: true,
-  );
-  List<AttendanceRecord> _loadedRecords = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  int _currentPage = 1;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  static const int _pageSize = 20;
-
-  final List<String> months = [
+  final List<String> monthsName = [
     'Jan',
     'Feb',
     'Mar',
@@ -46,97 +34,46 @@ class _AttendanceLogState extends State<AttendanceLog> {
     'Nov',
     'Dec',
   ];
-  final List<String> years = ['2024', '2025', '2026'];
+
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: true,
+  );
+
+  List<AttendanceRecord> _loadedRecords = [];
+  Map<String, List<String>> _availableOptions = {};
+  List<String> get years => _availableOptions.keys.toList();
+  List<String> get months => _availableOptions[selectedYear] ?? [];
+  late String selectedMonth;
+  late String selectedYear;
+
+  final int _fetchThreshold = 10;
+  final double _logCardHeight = 110;
+  final int _pageSize = 20;
+
+  // Window page trackers
+  int _topPage = 1; // Tracks page at top boundary (for scrolling up)
+  int _currentPage = 1; // Tracks page at bottom boundary (for scrolling down)
+
+  bool _hasPrevPage = false;
+  bool _hasNextPage = true;
+
+  bool _isLoadingTop = false;
+  bool _isLoadingMore = false;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   CentralApiCaller apiCaller = CentralApiCaller();
-
-  Future<void> _initializeData() async {
-    try {
-      final data = await _getRecords();
-      if (!mounted) return;
-
-      setState(() {
-        _loadedRecords = data;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _loadMoreRecords() async {
-    // Prevent duplicate API calls while loading or if end of data is reached
-    if (_isLoadingMore || !_hasMore) return;
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    try {
-      final nextPage = _currentPage + 1;
-      final newRecords = await _getRecords(page: nextPage, pageSize: _pageSize);
-
-      if (!mounted) return;
-
-      setState(() {
-        _currentPage = nextPage;
-        _loadedRecords.addAll(newRecords);
-        _isLoadingMore = false;
-
-        // Stop fetching if API returned fewer items than page size
-        if (newRecords.length < _pageSize) {
-          _hasMore = false;
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingMore = false;
-      });
-    }
-  }
-
-  Future<List<AttendanceRecord>> _getRecords({
-    int page = 1,
-    int pageSize = _pageSize,
-  }) async {
-    try {
-      final apiResponse = await apiCaller.attendance.getAttendance(
-        AttendanceRequest(page: page, pageSize: pageSize),
-      );
-
-      return apiResponse.data
-          .map((item) => AttendanceRecord.fromApiItem(item))
-          .toList();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Unexpected error occured'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      rethrow;
-    }
-  }
 
   @override
   void initState() {
     super.initState();
 
     final now = DateTime.now();
-    selectedMonth = months[now.month - 1];
+    selectedMonth = monthsName[now.month - 1];
     selectedYear = now.year.toString();
 
     _scrollController.addListener(_onScroll);
-
-    _initializeData();
+    _initializeOptionsAndData();
   }
 
   @override
@@ -145,27 +82,240 @@ class _AttendanceLogState extends State<AttendanceLog> {
     super.dispose();
   }
 
+  Future<void> _initializeOptionsAndData() async {
+    try {
+      final response = await apiCaller.attendance.getOptions();
+      final options = response.data;
+
+      if (options == null || options.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "No attendance options available.";
+        });
+        return;
+      }
+
+      _availableOptions = options;
+
+      final now = DateTime.now();
+      final currentYearStr = now.year.toString();
+      selectedYear = _availableOptions.containsKey(currentYearStr)
+          ? currentYearStr
+          : _availableOptions.keys.first;
+
+      final currentMonthStr = monthsName[now.month - 1];
+      final availableMonthsForYear = _availableOptions[selectedYear] ?? [];
+
+      if (availableMonthsForYear.contains(currentMonthStr)) {
+        selectedMonth = currentMonthStr;
+      } else {
+        selectedMonth = availableMonthsForYear.isNotEmpty
+            ? availableMonthsForYear.last
+            : currentMonthStr;
+      }
+
+      await _onFilterChanged(newMonth: selectedMonth, newYear: selectedYear);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onYearSelected(String newYear) {
+    if (newYear == selectedYear) return;
+
+    final availableMonthsInNewYear = _availableOptions[newYear] ?? [];
+    String newMonth = selectedMonth;
+
+    if (!availableMonthsInNewYear.contains(selectedMonth) &&
+        availableMonthsInNewYear.isNotEmpty) {
+      newMonth = availableMonthsInNewYear.last;
+    }
+
+    _onFilterChanged(newMonth: newMonth, newYear: newYear);
+  }
+
+  Future<void> _onFilterChanged({String? newMonth, String? newYear}) async {
+    final targetMonth = newMonth ?? selectedMonth;
+    final targetYear = newYear ?? selectedYear;
+
+    setState(() {
+      if (newMonth != null) selectedMonth = newMonth;
+      if (newYear != null) selectedYear = newYear;
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final apiResponse = await apiCaller.attendance.getAttendance(
+        AttendanceRequest(
+          pageSize: _pageSize,
+          month: targetMonth,
+          year: targetYear,
+        ),
+      );
+
+      final newRecords = apiResponse.data
+          .map((item) => AttendanceRecord.fromApiItem(item))
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _loadedRecords = newRecords;
+
+        // Synchronize both top and bottom window anchors to target page
+        _topPage = apiResponse.page;
+        _currentPage = apiResponse.page;
+
+        _hasPrevPage = apiResponse.hasPrevPage;
+        _hasNextPage = apiResponse.hasNextPage;
+        _isLoading = false;
+      });
+
+      _scrollToTargetMonth(targetMonth, targetYear);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _scrollToTargetMonth(String targetMonth, String targetYear) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients || _loadedRecords.isEmpty) return;
+
+      final targetIndex = _loadedRecords.indexWhere(
+        (r) => r.monthString == targetMonth && r.yearString == targetYear,
+      );
+
+      if (targetIndex != -1) {
+        const double topPadding = 16.0;
+        final double targetOffset = topPadding + (targetIndex * _logCardHeight);
+        final jumpTo = targetOffset.clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
+
+        _scrollController.jumpTo(jumpTo);
+      } else {
+        _scrollController.jumpTo(0.0);
+      }
+    });
+  }
+
+  /// Downward Pagination (Fetches older records)
+  Future<void> _loadMoreRecords() async {
+    if (_isLoadingMore || !_hasNextPage) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final nextPage = _currentPage + 1;
+      final apiResponse = await apiCaller.attendance.getAttendance(
+        AttendanceRequest(page: nextPage, pageSize: _pageSize),
+      );
+
+      final newRecords = apiResponse.data
+          .map((item) => AttendanceRecord.fromApiItem(item))
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _currentPage = nextPage; // Advance bottom page anchor
+        _loadedRecords.addAll(newRecords);
+        _isLoadingMore = false;
+        _hasNextPage = apiResponse.hasNextPage;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  /// Upward Pagination (Fetches newer records and adjusts scroll position)
+  Future<void> _loadPrevRecords() async {
+    if (_isLoadingTop || !_hasPrevPage) return;
+
+    _isLoadingTop = true;
+
+    try {
+      final prevPage = _topPage - 1;
+      final apiResponse = await apiCaller.attendance.getAttendance(
+        AttendanceRequest(page: prevPage, pageSize: _pageSize),
+      );
+
+      final newRecords = apiResponse.data
+          .map((item) => AttendanceRecord.fromApiItem(item))
+          .toList();
+
+      if (!mounted) return;
+
+      final double addedHeight = newRecords.length * _logCardHeight;
+      final double currentOffset = _scrollController.offset;
+
+      setState(() {
+        _topPage = prevPage; // Retreat top page anchor
+        _loadedRecords.insertAll(0, newRecords);
+        _hasPrevPage = apiResponse.hasPrevPage;
+        _isLoadingTop = false;
+      });
+
+      // Shift scroll offset down by height of inserted records to keep viewport stable
+      _scrollController.jumpTo(currentOffset + addedHeight);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTop = false;
+      });
+    }
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients || _loadedRecords.isEmpty) return;
-    const double itemHeight = 94.0;
 
-    // Get top card data as we scrolling
-    int currentIndex = (_scrollController.offset / itemHeight).floor();
+    const double topPadding = 16.0;
+    final double adjustedOffset = (_scrollController.offset - topPadding).clamp(
+      0.0,
+      double.infinity,
+    );
+
+    int currentIndex = (adjustedOffset / _logCardHeight).floor();
     currentIndex = currentIndex.clamp(0, _loadedRecords.length - 1);
 
+    // Sync Header Dropdowns
     final record = _loadedRecords[currentIndex];
-    final visibleMonth = record.monthString;
-    final visibleYear = record.yearString;
-
-    if (selectedMonth != visibleMonth || selectedYear != visibleYear) {
+    if (selectedMonth != record.monthString ||
+        selectedYear != record.yearString) {
       setState(() {
-        if (months.contains(visibleMonth)) selectedMonth = visibleMonth;
-        if (years.contains(visibleYear)) selectedYear = visibleYear;
+        if (months.contains(record.monthString)) {
+          selectedMonth = record.monthString;
+        }
+        if (years.contains(record.yearString)) {
+          selectedYear = record.yearString;
+        }
       });
     }
 
-    const int fetchThreshold = 10;
-    if (currentIndex >= _loadedRecords.length - fetchThreshold) {
+    // Scroll Upward Trigger
+    if (currentIndex <= _fetchThreshold && _hasPrevPage) {
+      _loadPrevRecords();
+    }
+
+    // Scroll Downward Trigger
+    if (currentIndex >= _loadedRecords.length - _fetchThreshold &&
+        _hasNextPage) {
       _loadMoreRecords();
     }
   }
@@ -184,7 +334,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
       ),
       child: PopupMenuButton<String>(
         position: PopupMenuPosition.under,
-        constraints: BoxConstraints(maxHeight: 200, minWidth: 80),
+        constraints: const BoxConstraints(maxHeight: 200, minWidth: 80),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 3,
         onSelected: onChanged,
@@ -195,13 +345,16 @@ class _AttendanceLogState extends State<AttendanceLog> {
               height: 36,
               child: Text(
                 item,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             );
           }).toList();
         },
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
             border: Border.all(color: Colors.grey.shade300),
@@ -212,10 +365,13 @@ class _AttendanceLogState extends State<AttendanceLog> {
             children: [
               Text(
                 value,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              SizedBox(width: 4),
-              Icon(Icons.keyboard_arrow_down, size: 16),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down, size: 16),
             ],
           ),
         ),
@@ -258,9 +414,8 @@ class _AttendanceLogState extends State<AttendanceLog> {
     return Scaffold(
       body: Column(
         children: [
-          // Top Section
           Container(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
@@ -280,22 +435,16 @@ class _AttendanceLogState extends State<AttendanceLog> {
                   ),
                   Row(
                     children: [
-                      // Month Dropdown
                       _buildDropdownButton(
                         value: selectedMonth,
                         items: months,
-                        onChanged: (val) {
-                          setState(() => selectedMonth = val);
-                        },
+                        onChanged: (val) => _onFilterChanged(newMonth: val),
                       ),
-                      SizedBox(width: 8),
-                      // Year Dropdown
+                      const SizedBox(width: 8),
                       _buildDropdownButton(
                         value: selectedYear,
                         items: years,
-                        onChanged: (val) {
-                          setState(() => selectedYear = val);
-                        },
+                        onChanged: (val) => _onYearSelected(val),
                       ),
                     ],
                   ),
@@ -303,16 +452,12 @@ class _AttendanceLogState extends State<AttendanceLog> {
               ),
             ),
           ),
-
-          // Attendance Log Section
           Expanded(child: _buildLogContent()),
         ],
       ),
     );
   }
 }
-
-enum LogType { onTime, late, inProgress, overtime, leaves }
 
 class AttendanceRecord {
   final int id;
@@ -437,131 +582,146 @@ class AttendanceCard extends StatelessWidget {
     final timeString =
         '${record.formattedCheckIn} - ${record.formattedCheckOut}';
 
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            onTap: () {
-              if (record.status == LogType.leaves ||
-                  record.status == LogType.overtime) {
-                RequestType requestType;
-                if (record.status == LogType.leaves) {
-                  requestType = RequestType.leaves;
-                } else {
-                  requestType = RequestType.overtime;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        RequestDetail(requestType: requestType),
-                  ),
-                );
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SubmitAttendance(
-                      pageType: AttendancePageType.detail,
-                      checkInDetail: record.checkInDetail,
-                      checkOutDetail: record.checkOutDetail,
-                    ),
-                  ),
-                );
-              }
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Ink(
-              padding: EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          timeString,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          record.formattedDate,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.inverseSurface,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+    const double kCardItemHeight = 98.0;
+    const double kCardBottomMargin = 12.0;
 
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+    return SizedBox(
+      height: kCardItemHeight + kCardBottomMargin,
+      child: Column(
+        children: [
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  final status = record.status;
+
+                  // Simplified navigation logic
+                  if (status == LogType.leaves || status == LogType.overtime) {
+                    final requestType = status == LogType.leaves
+                        ? RequestType.leaves
+                        : RequestType.overtime;
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RequestDetail(requestType: requestType),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubmitAttendance(
+                          pageType: AttendancePageType.detail,
+                          checkInDetail: record.checkInDetail,
+                          checkOutDetail: record.checkOutDetail,
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Ink(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 12.0,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getStatusBgColor(
-                            record.status,
-                            record.pending,
-                          ),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _getStatusText(record.status, record.pending),
-                          style: TextStyle(
-                            color: _getStatusTextColor(
-                              record.status,
-                              record.pending,
+                      // Left Column: Time & Date
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              timeString,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+                            const SizedBox(height: 4),
+                            Text(
+                              record.formattedDate,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.inverseSurface,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
-                      SizedBox(height: 6),
-
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        child: Text(
-                          record.formattedDuration,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.outline,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                      // Right Column: Status & Duration
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getStatusBgColor(
+                                record.status,
+                                record.pending,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _getStatusText(record.status, record.pending),
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: _getStatusTextColor(
+                                  record.status,
+                                  record.pending,
+                                ),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          Text(
+                            record.formattedDuration,
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-
-        SizedBox(height: 12),
-      ],
+          const SizedBox(height: kCardBottomMargin),
+        ],
+      ),
     );
   }
 

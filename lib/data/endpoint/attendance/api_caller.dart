@@ -91,4 +91,30 @@ class AttendanceApiCaller {
       );
     }
   }
+
+  Future<LogOption> getOptions() async {
+    try {
+      var uri = Uri.parse('$baseUrl/attendances/option');
+
+      final currentToken = getToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (currentToken != null && currentToken.isNotEmpty)
+          'Authorization': 'Bearer $currentToken',
+      };
+
+      final response = await client.get(uri, headers: headers);
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) {
+        return LogOption.fromJson(jsonBody, response.statusCode);
+      } else {
+        final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      final message = "Failed to retrieve data: ${e.toString()} ";
+      throw Exception(message);
+    }
+  }
 }
