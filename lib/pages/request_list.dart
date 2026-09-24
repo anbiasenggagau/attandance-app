@@ -1,3 +1,6 @@
+import 'package:attandance/data/central_api_caller.dart';
+import 'package:attandance/data/endpoint/requests/request.dart';
+import 'package:attandance/data/endpoint/requests/response.dart';
 import 'package:attandance/pages/request_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -16,11 +19,7 @@ class RequestList extends StatefulWidget {
 }
 
 class _RequestListState extends State<RequestList> {
-  late String selectedMonth;
-  late String selectedYear;
-  final ScrollController _scrollController = ScrollController();
-
-  final List<String> months = [
+  final List<String> monthsName = [
     'Jan',
     'Feb',
     'Mar',
@@ -34,79 +33,46 @@ class _RequestListState extends State<RequestList> {
     'Nov',
     'Dec',
   ];
-  final List<String> years = ['2024', '2025', '2026'];
 
-  final List<RequestRecord> records = [
-    RequestRecord(
-      date: DateTime(2026, 8, 30),
-      startTime: DateTime(2026, 8, 6, 9, 0),
-      endTime: DateTime(2026, 8, 6, 17, 0),
-      requestType: RequestType.leaves,
-      statusDetail: 'Sick Leave',
-    ),
-    RequestRecord(
-      date: DateTime(2026, 8, 6),
-      startTime: DateTime(2026, 8, 6, 9, 0),
-      endTime: DateTime(2026, 8, 6, 17, 0),
-      requestType: RequestType.leaves,
-      statusDetail: 'Annual Leave',
-    ),
-    RequestRecord(
-      date: DateTime(2026, 8, 6),
-      startTime: DateTime(2026, 8, 6, 9, 0),
-      endTime: DateTime(2026, 8, 6, 17, 0),
-      requestType: RequestType.leaves,
-      statusDetail: 'Sick Leave',
-      currStatus: Status.approved,
-    ),
-    RequestRecord(
-      date: DateTime(2026, 8, 5),
-      startTime: DateTime(2026, 8, 5, 19, 0),
-      endTime: DateTime(2026, 8, 5, 20, 0),
-      requestType: RequestType.overtime,
-      statusDetail: '+1 Hours',
-    ),
-    RequestRecord(
-      date: DateTime(2026, 8, 4),
-      startTime: DateTime(2026, 8, 6, 9, 0),
-      endTime: DateTime(2026, 8, 6, 17, 0),
-      requestType: RequestType.leaves,
-      statusDetail: 'Sick Leave',
-    ),
-    RequestRecord(
-      date: DateTime(2026, 8, 3),
-      startTime: DateTime(2026, 8, 5, 19, 0),
-      endTime: DateTime(2026, 8, 5, 20, 0),
-      requestType: RequestType.overtime,
-      statusDetail: '+1 Hours',
-      currStatus: Status.approved,
-    ),
-    RequestRecord(
-      date: DateTime(2026, 8, 2),
-      startTime: DateTime(2026, 8, 6, 9, 0),
-      endTime: DateTime(2026, 8, 6, 17, 0),
-      requestType: RequestType.leaves,
-      statusDetail: 'Sick Leave',
-    ),
-    RequestRecord(
-      date: DateTime(2026, 8, 1),
-      startTime: DateTime(2026, 8, 5, 19, 0),
-      endTime: DateTime(2026, 8, 5, 20, 0),
-      requestType: RequestType.overtime,
-      statusDetail: '+1 Hours',
-      currStatus: Status.denied,
-    ),
-  ];
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: true,
+  );
+
+  List<RequestRecord> _loadedRecords = [];
+  Map<String, List<String>> _availableOptions = {};
+  List<String> get years => _availableOptions.keys.toList();
+  List<String> get months => _availableOptions[selectedYear] ?? [];
+  late String selectedMonth;
+  late String selectedYear;
+
+  final int _fetchThreshold = 10;
+  final double _logCardHeight = 110;
+  final int _pageSize = 20;
+
+  // Window page trackers
+  int _topPage = 1; // Tracks page at top boundary (for scrolling up)
+  int _currentPage = 1; // Tracks page at bottom boundary (for scrolling down)
+
+  bool _hasPrevPage = false;
+  bool _hasNextPage = true;
+
+  bool _isLoadingTop = false;
+  bool _isLoadingMore = false;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  CentralApiCaller apiCaller = CentralApiCaller();
 
   @override
   void initState() {
     super.initState();
 
     final now = DateTime.now();
-    selectedMonth = months[now.month - 1];
+    selectedMonth = monthsName[now.month - 1];
     selectedYear = now.year.toString();
 
     _scrollController.addListener(_onScroll);
+    _initializeOptionsAndData();
   }
 
   @override
@@ -115,23 +81,241 @@ class _RequestListState extends State<RequestList> {
     super.dispose();
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    const double itemHeight = 94.0;
+  Future<void> _initializeOptionsAndData() async {
+    try {
+      final response = await apiCaller.request.getOptions();
+      final options = response.data;
 
-    // Get top card data as we scrolling
-    int currentIndex = (_scrollController.offset / itemHeight).floor();
-    currentIndex = currentIndex.clamp(0, records.length - 1);
+      if (options == null || options.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "No request options available.";
+        });
+        return;
+      }
 
-    final record = records[currentIndex];
-    final visibleMonth = record.monthString;
-    final visibleYear = record.yearString;
+      _availableOptions = options;
 
-    if (selectedMonth != visibleMonth || selectedYear != visibleYear) {
+      final now = DateTime.now();
+      final currentYearStr = now.year.toString();
+      selectedYear = _availableOptions.containsKey(currentYearStr)
+          ? currentYearStr
+          : _availableOptions.keys.first;
+
+      final currentMonthStr = monthsName[now.month - 1];
+      final availableMonthsForYear = _availableOptions[selectedYear] ?? [];
+
+      if (availableMonthsForYear.contains(currentMonthStr)) {
+        selectedMonth = currentMonthStr;
+      } else {
+        selectedMonth = availableMonthsForYear.isNotEmpty
+            ? availableMonthsForYear.last
+            : currentMonthStr;
+      }
+
+      await _onFilterChanged(newMonth: selectedMonth, newYear: selectedYear);
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        if (months.contains(visibleMonth)) selectedMonth = visibleMonth;
-        if (years.contains(visibleYear)) selectedYear = visibleYear;
+        _errorMessage = e.toString();
+        _isLoading = false;
       });
+    }
+  }
+
+  void _onYearSelected(String newYear) {
+    if (newYear == selectedYear) return;
+
+    final availableMonthsInNewYear = _availableOptions[newYear] ?? [];
+    String newMonth = selectedMonth;
+
+    if (!availableMonthsInNewYear.contains(selectedMonth) &&
+        availableMonthsInNewYear.isNotEmpty) {
+      newMonth = availableMonthsInNewYear.last;
+    }
+
+    _onFilterChanged(newMonth: newMonth, newYear: newYear);
+  }
+
+  Future<void> _onFilterChanged({String? newMonth, String? newYear}) async {
+    final targetMonth = newMonth ?? selectedMonth;
+    final targetYear = newYear ?? selectedYear;
+
+    setState(() {
+      if (newMonth != null) selectedMonth = newMonth;
+      if (newYear != null) selectedYear = newYear;
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final apiResponse = await apiCaller.request.getApprovals(
+        RequestsRequest(
+          pageSize: _pageSize,
+          month: targetMonth,
+          year: targetYear,
+        ),
+      );
+
+      final newRecords = apiResponse.data
+          .map((item) => RequestRecord.fromApiItem(item))
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _loadedRecords = newRecords;
+
+        // Synchronize both top and bottom window anchors to target page
+        _topPage = apiResponse.page;
+        _currentPage = apiResponse.page;
+
+        _hasPrevPage = apiResponse.hasPrevPage;
+        _hasNextPage = apiResponse.hasNextPage;
+        _isLoading = false;
+      });
+
+      _scrollToTargetMonth(targetMonth, targetYear);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _scrollToTargetMonth(String targetMonth, String targetYear) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients || _loadedRecords.isEmpty) return;
+
+      final targetIndex = _loadedRecords.indexWhere(
+        (r) => r.monthString == targetMonth && r.yearString == targetYear,
+      );
+
+      if (targetIndex != -1) {
+        const double topPadding = 16.0;
+        final double targetOffset = topPadding + (targetIndex * _logCardHeight);
+        final jumpTo = targetOffset.clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
+
+        _scrollController.jumpTo(jumpTo);
+      } else {
+        _scrollController.jumpTo(0.0);
+      }
+    });
+  }
+
+  /// Downward Pagination (Fetches older records)
+  Future<void> _loadMoreRecords() async {
+    if (_isLoadingMore || !_hasNextPage) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final nextPage = _currentPage + 1;
+      final apiResponse = await apiCaller.request.getApprovals(
+        RequestsRequest(page: nextPage, pageSize: _pageSize),
+      );
+
+      final newRecords = apiResponse.data
+          .map((item) => RequestRecord.fromApiItem(item))
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _currentPage = nextPage; // Advance bottom page anchor
+        _loadedRecords.addAll(newRecords);
+        _isLoadingMore = false;
+        _hasNextPage = apiResponse.hasNextPage;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  /// Upward Pagination (Fetches newer records and adjusts scroll position)
+  Future<void> _loadPrevRecords() async {
+    if (_isLoadingTop || !_hasPrevPage) return;
+
+    _isLoadingTop = true;
+
+    try {
+      final prevPage = _topPage - 1;
+      final apiResponse = await apiCaller.request.getApprovals(
+        RequestsRequest(page: prevPage, pageSize: _pageSize),
+      );
+
+      final newRecords = apiResponse.data
+          .map((item) => RequestRecord.fromApiItem(item))
+          .toList();
+
+      if (!mounted) return;
+
+      final double addedHeight = newRecords.length * _logCardHeight;
+      final double currentOffset = _scrollController.offset;
+
+      setState(() {
+        _topPage = prevPage; // Retreat top page anchor
+        _loadedRecords.insertAll(0, newRecords);
+        _hasPrevPage = apiResponse.hasPrevPage;
+        _isLoadingTop = false;
+      });
+
+      // Shift scroll offset down by height of inserted records to keep viewport stable
+      _scrollController.jumpTo(currentOffset + addedHeight);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTop = false;
+      });
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _loadedRecords.isEmpty) return;
+
+    const double topPadding = 16.0;
+    final double adjustedOffset = (_scrollController.offset - topPadding).clamp(
+      0.0,
+      double.infinity,
+    );
+
+    int currentIndex = (adjustedOffset / _logCardHeight).floor();
+    currentIndex = currentIndex.clamp(0, _loadedRecords.length - 1);
+
+    // Sync Header Dropdowns
+    final record = _loadedRecords[currentIndex];
+    if (selectedMonth != record.monthString ||
+        selectedYear != record.yearString) {
+      setState(() {
+        if (months.contains(record.monthString)) {
+          selectedMonth = record.monthString;
+        }
+        if (years.contains(record.yearString)) {
+          selectedYear = record.yearString;
+        }
+      });
+    }
+
+    // Scroll Upward Trigger
+    if (currentIndex <= _fetchThreshold && _hasPrevPage) {
+      _loadPrevRecords();
+    }
+
+    // Scroll Downward Trigger
+    if (currentIndex >= _loadedRecords.length - _fetchThreshold &&
+        _hasNextPage) {
+      _loadMoreRecords();
     }
   }
 
@@ -149,7 +333,7 @@ class _RequestListState extends State<RequestList> {
       ),
       child: PopupMenuButton<String>(
         position: PopupMenuPosition.under,
-        constraints: BoxConstraints(maxHeight: 200, minWidth: 80),
+        constraints: const BoxConstraints(maxHeight: 200, minWidth: 80),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 3,
         onSelected: onChanged,
@@ -160,13 +344,16 @@ class _RequestListState extends State<RequestList> {
               height: 36,
               child: Text(
                 item,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             );
           }).toList();
         },
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
             border: Border.all(color: Colors.grey.shade300),
@@ -177,14 +364,47 @@ class _RequestListState extends State<RequestList> {
             children: [
               Text(
                 value,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              SizedBox(width: 4),
-              Icon(Icons.keyboard_arrow_down, size: 16),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down, size: 16),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildApprovalsContent() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(child: Text('Error: $_errorMessage'));
+    }
+
+    if (_loadedRecords.isEmpty) {
+      return const Center(child: Text('No approvals found.'));
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16.0),
+      itemCount: _loadedRecords.length + (_isLoadingMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == _loadedRecords.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        return AttendanceCard(record: _loadedRecords[index]);
+      },
     );
   }
 
@@ -216,18 +436,14 @@ class _RequestListState extends State<RequestList> {
                       _buildDropdownButton(
                         value: selectedMonth,
                         items: months,
-                        onChanged: (val) {
-                          setState(() => selectedMonth = val);
-                        },
+                        onChanged: (val) => _onFilterChanged(newMonth: val),
                       ),
                       SizedBox(width: 8),
                       // Year Dropdown
                       _buildDropdownButton(
                         value: selectedYear,
                         items: years,
-                        onChanged: (val) {
-                          setState(() => selectedYear = val);
-                        },
+                        onChanged: (val) => _onYearSelected(val),
                       ),
                     ],
                   ),
@@ -236,17 +452,7 @@ class _RequestListState extends State<RequestList> {
             ),
           ),
 
-          // Attendance Log Section
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.all(16.0),
-              itemCount: records.length,
-              itemBuilder: (context, index) {
-                return AttendanceCard(record: records[index]);
-              },
-            ),
-          ),
+          Expanded(child: _buildApprovalsContent()),
         ],
       ),
     );
@@ -254,6 +460,7 @@ class _RequestListState extends State<RequestList> {
 }
 
 class RequestRecord {
+  final int id;
   final DateTime date;
   final DateTime? startTime;
   final DateTime? endTime;
@@ -262,6 +469,7 @@ class RequestRecord {
   final String? statusDetail;
 
   RequestRecord({
+    required this.id,
     required this.date,
     this.startTime,
     this.endTime,
@@ -269,6 +477,41 @@ class RequestRecord {
     this.currStatus = Status.pending,
     this.statusDetail,
   });
+
+  factory RequestRecord.fromApiItem(RequestItem item) {
+    DateTime parsedDate =
+        DateTime.tryParse(item.date) ??
+        _parseDateString(item.date) ??
+        DateTime.now();
+
+    Status mappedStatus = Status.values.firstWhere(
+      (e) => e.name.toLowerCase() == item.requestStatus.toLowerCase(),
+      orElse: () => Status.pending,
+    );
+
+    RequestType mappedType = RequestType.values.firstWhere(
+      (e) => e.name.toLowerCase() == item.requestType.toLowerCase(),
+      orElse: () => RequestType.leaves,
+    );
+
+    return RequestRecord(
+      id: item.id,
+      date: parsedDate,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      requestType: mappedType,
+      currStatus: mappedStatus,
+      statusDetail: item.note,
+    );
+  }
+
+  static DateTime? _parseDateString(String dateStr) {
+    try {
+      return DateFormat('yyyy-MMM-dd').parse(dateStr);
+    } catch (_) {
+      return null;
+    }
+  }
 
   String get formattedDate => DateFormat('EEE, dd MMM yyyy').format(date);
 
@@ -320,7 +563,7 @@ class AttendanceCard extends StatelessWidget {
                     builder: (context) => RequestDetail(
                       pageType: RequestPageType.approval,
                       requestType: record.requestType,
-                      status: record.currStatus,
+                      id: record.id,
                     ),
                   ),
                 );

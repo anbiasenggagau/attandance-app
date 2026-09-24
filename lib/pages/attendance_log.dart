@@ -435,6 +435,8 @@ class _AttendanceLogState extends State<AttendanceLog> {
                   ),
                   Row(
                     children: [
+                      // const Icon(Icons.refresh_rounded, size: 16),
+                      // const SizedBox(width: 8),
                       _buildDropdownButton(
                         value: selectedMonth,
                         items: months,
@@ -490,9 +492,7 @@ class AttendanceRecord {
     this.createdAt,
   });
 
-  // Mapper factory from AttendanceItem -> AttendanceRecord
   factory AttendanceRecord.fromApiItem(AttendanceItem item) {
-    // Parse date (Handles 'yyyy-MMM-dd' or standard ISO 8601 string)
     DateTime parsedDate =
         DateTime.tryParse(item.date) ??
         _parseDateString(item.date) ??
@@ -607,7 +607,10 @@ class AttendanceCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => RequestDetail(requestType: requestType),
+                        builder: (_) => RequestDetail(
+                          requestType: requestType,
+                          id: record.requestData!.id,
+                        ),
                       ),
                     );
                   } else {

@@ -1,3 +1,4 @@
+import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/pages/request_list.dart';
 import 'package:flutter/material.dart';
 
@@ -8,13 +9,15 @@ enum RequestType { overtime, leaves }
 class RequestDetail extends StatefulWidget {
   final RequestPageType pageType;
   final RequestType requestType;
-  final Status status;
+
+  final int id;
 
   const RequestDetail({
     super.key,
     this.pageType = RequestPageType.detail,
     required this.requestType,
-    this.status = Status.pending,
+
+    required this.id,
   });
 
   @override
@@ -22,6 +25,55 @@ class RequestDetail extends StatefulWidget {
 }
 
 class _RequestDetailState extends State<RequestDetail> {
+  bool _isLoading = true;
+
+  late String? leaveType;
+  late DateTime fromDate;
+  late DateTime toDate;
+  late String approvalList;
+  late String? note;
+  late Status status;
+
+  late bool isPending;
+  late bool isApproved;
+  late bool isDenied;
+
+  CentralApiCaller apiCaller = CentralApiCaller();
+
+  Future<void> _initializeData() async {
+    final resp = await apiCaller.request.getRequestDetail(widget.id);
+
+    if (resp.statusCode != 200) {
+      return;
+    }
+
+    Status mappedStatus = Status.values.firstWhere(
+      (e) => e.name.toLowerCase() == resp.data!.requestStatus.toLowerCase(),
+      orElse: () => Status.pending,
+    );
+
+    leaveType = resp.data!.leaveType;
+    fromDate = resp.data!.startTime;
+    toDate = resp.data!.endTime;
+    approvalList = resp.data!.approvalListName;
+    note = resp.data!.note;
+    status = mappedStatus;
+
+    isPending = status == Status.pending;
+    isApproved = status == Status.approved;
+    isDenied = status == Status.denied;
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeData();
+  }
+
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
@@ -75,132 +127,143 @@ class _RequestDetailState extends State<RequestDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = widget.status == Status.pending;
-    final isApproved = widget.status == Status.approved;
-    final isDenied = widget.status == Status.denied;
-
     return Scaffold(
       appBar: AppBar(title: Text("Request Detail")),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.requestType == RequestType.leaves) ...[
-              _buildLabel('Leave Type'),
-              _buildValue(context, 'Annual Leave', icon: Icons.event_note),
-            ],
-
-            const SizedBox(height: 20),
-
-            _buildLabel('From'),
-            _buildValue(
-              context,
-              '26 Aug 2026, 08:00 AM',
-              icon: Icons.calendar_today,
-            ),
-
-            const SizedBox(height: 10),
-
-            _buildLabel('To'),
-            _buildValue(
-              context,
-              '26 Aug 2026, 04:00 PM',
-              icon: Icons.calendar_today,
-            ),
-
-            const SizedBox(height: 20),
-
-            _buildLabel('Approval To'),
-            _buildValue(context, 'Human Resources', icon: Icons.approval),
-
-            const SizedBox(height: 20),
-
-            _buildLabel('Note'),
-            _buildValue(
-              context,
-              'Working overtime to complete the monthly report.',
-              maxLines: 4,
-            ),
-            const SizedBox(height: 40),
-
-            widget.pageType == RequestPageType.approval
-                ? SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        height: 50,
-                        child: Row(
-                          children: [
-                            // Deny Button
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: isPending
-                                    ? () {
-                                        // Handle deny action
-                                      }
-                                    : null, // Disables button when not pending
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: BorderSide(
-                                    color: isPending || isDenied
-                                        ? Colors.red
-                                        : Colors.grey.shade300,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                ),
-                                child: Text(
-                                  isDenied ? 'Denied' : 'Deny',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 12),
-
-                            // Approve Button
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: isPending
-                                    ? () {
-                                        // Handle approve action
-                                      }
-                                    : null, // Disables button when not pending
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.primary,
-                                  foregroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surface,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                child: Text(
-                                  isApproved ? 'Approved' : 'Approve',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.requestType == RequestType.leaves) ...[
+                    _buildLabel('Leave Type'),
+                    _buildValue(
+                      context,
+                      'Annual Leave',
+                      icon: Icons.event_note,
                     ),
-                  )
-                : const SizedBox.shrink(),
-          ],
-        ),
-      ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  _buildLabel("Requestor Name"),
+                  _buildValue(context, "Megan Fox", icon: Icons.person),
+
+                  const SizedBox(height: 20),
+
+                  _buildLabel('From'),
+                  _buildValue(
+                    context,
+                    '26 Aug 2026, 08:00 AM',
+                    icon: Icons.calendar_today,
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  _buildLabel('To'),
+                  _buildValue(
+                    context,
+                    '26 Aug 2026, 04:00 PM',
+                    icon: Icons.calendar_today,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  _buildLabel('Approval To'),
+                  _buildValue(context, 'Human Resources', icon: Icons.approval),
+
+                  const SizedBox(height: 20),
+
+                  _buildLabel('Note'),
+                  _buildValue(
+                    context,
+                    'Working overtime to complete the monthly report.',
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 40),
+
+                  widget.pageType == RequestPageType.approval
+                      ? SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: SizedBox(
+                              height: 50,
+                              child: Row(
+                                children: [
+                                  // Deny Button
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: isPending
+                                          ? () {
+                                              // Handle deny action
+                                            }
+                                          : null, // Disables button when not pending
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                        side: BorderSide(
+                                          color: isPending || isDenied
+                                              ? Colors.red
+                                              : Colors.grey.shade300,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            30,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isDenied ? 'Denied' : 'Deny',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 12),
+
+                                  // Approve Button
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: isPending
+                                          ? () {
+                                              // Handle approve action
+                                            }
+                                          : null, // Disables button when not pending
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        foregroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            30,
+                                          ),
+                                        ),
+                                        elevation: 0,
+                                      ),
+                                      child: Text(
+                                        isApproved ? 'Approved' : 'Approve',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ],
+              ),
+            ),
     );
   }
 }

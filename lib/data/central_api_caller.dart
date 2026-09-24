@@ -1,5 +1,6 @@
 import 'package:attandance/data/endpoint/attendance/api_caller.dart';
 import 'package:attandance/data/endpoint/auth/api_caller.dart';
+import 'package:attandance/data/endpoint/requests/api_caller.dart';
 import 'package:attandance/main.dart';
 import 'package:attandance/pages/login.dart';
 import 'package:attandance/storage/token.dart';
@@ -14,10 +15,16 @@ class CentralApiCaller {
 
   late final AuthApiCaller auth;
   late final AttendanceApiCaller attendance;
+  late final RequestApiCaller request;
 
   CentralApiCaller._internal() : httpClient = AuthInterceptorClient() {
     auth = AuthApiCaller(baseUrl: baseUrl, client: httpClient);
     attendance = AttendanceApiCaller(
+      baseUrl: baseUrl,
+      client: httpClient,
+      getToken: () => jwtToken,
+    );
+    request = RequestApiCaller(
       baseUrl: baseUrl,
       client: httpClient,
       getToken: () => jwtToken,
