@@ -548,13 +548,21 @@ class AttendanceRecord {
     }
   }
 
-  String get formattedDate => DateFormat('EEE, dd MMM yyyy').format(date);
+  String get formattedDate => DateFormat(
+    'EEE, dd MMM yyyy',
+  ).format(date.toUtc().add(const Duration(hours: 7)));
 
-  String get formattedCheckIn =>
-      checkIn != null ? DateFormat('hh:mm a').format(checkIn!) : '--:--';
+  String get formattedCheckIn => checkIn != null
+      ? DateFormat(
+          'hh:mm a',
+        ).format(checkIn!.toUtc().add(const Duration(hours: 7)))
+      : '--:--';
 
-  String get formattedCheckOut =>
-      checkOut != null ? DateFormat('hh:mm a').format(checkOut!) : '--:--';
+  String get formattedCheckOut => checkOut != null
+      ? DateFormat(
+          'hh:mm a',
+        ).format(checkOut!.toUtc().add(const Duration(hours: 7)))
+      : '--:--';
 
   String get monthString => DateFormat('MMM').format(date);
   String get yearString => DateFormat('yyyy').format(date);
@@ -687,17 +695,17 @@ class AttendanceCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: _getStatusBgColor(
                                 record.status,
-                                record.pending,
+                                record.requestData,
                               ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              _getStatusText(record.status, record.pending),
+                              _getStatusText(record.status, record.requestData),
                               maxLines: 1,
                               style: TextStyle(
                                 color: _getStatusTextColor(
                                   record.status,
-                                  record.pending,
+                                  record.requestData,
                                 ),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -728,63 +736,85 @@ class AttendanceCard extends StatelessWidget {
     );
   }
 
-  String _getStatusText(LogType status, bool pending) {
+  String _getStatusText(LogType status, RequestData? requestData) {
+    // If requestData exists, display as RequestType:CurrentStatus (e.g., Leaves:Denied)
+    if (requestData != null) {
+      return '${requestData.requestType}:${requestData.requestStatus}';
+    }
+
     String result = "";
     switch (status) {
       case LogType.onTime:
         result += 'On Time';
+        break;
       case LogType.late:
         result += 'Late';
+        break;
       case LogType.inProgress:
         result += 'In Progress';
+        break;
       case LogType.overtime:
         result += 'Overtime';
+        break;
       case LogType.leaves:
         result += 'Leaves';
-    }
-
-    if (pending) {
-      result += ":Pending";
+        break;
     }
 
     return result;
   }
 
-  Color _getStatusBgColor(LogType status, bool pending) {
+  Color _getStatusBgColor(LogType status, RequestData? requestData) {
+    final bool pending =
+        requestData != null && requestData.requestStatus == "Pending";
+
+    // Turn background red only if Denied
+    if (requestData?.requestStatus == 'Denied') {
+      return const Color(0xFFFCE8E8); // Light red background
+    }
+
     if (pending && (status == LogType.overtime || status == LogType.leaves)) {
-      return Color(0xFFE2E8F0);
+      return const Color(0xFFE2E8F0);
     }
 
     switch (status) {
       case LogType.onTime:
-        return Color(0xFFD1F4E0);
+        return const Color(0xFFD1F4E0);
       case LogType.late:
-        return Color(0xFFFCE8E8);
+        return const Color(0xFFFCE8E8);
       case LogType.inProgress:
-        return Color(0xFFFEF0C7);
+        return const Color(0xFFFEF0C7);
       case LogType.overtime:
-        return Color(0xFFE0F2FE);
+        return const Color(0xFFE0F2FE);
       case LogType.leaves:
-        return Color(0xFFF3E8FF);
+        return const Color(0xFFF3E8FF);
     }
   }
 
-  Color _getStatusTextColor(LogType status, bool pending) {
+  Color _getStatusTextColor(LogType status, RequestData? requestData) {
+    final bool pending =
+        requestData != null && requestData.requestStatus == "Pending";
+
+    // Turn text red only if Denied
+    if (requestData?.requestStatus == 'Denied') {
+      return const Color(0xFFDC2626); // Red text
+    }
+
     if (pending && (status == LogType.overtime || status == LogType.leaves)) {
-      return Color(0xFF475569);
+      return const Color(0xFF475569);
     }
 
     switch (status) {
       case LogType.onTime:
-        return Color(0xFF16A34A);
+        return const Color(0xFF16A34A);
       case LogType.late:
-        return Color(0xFFDC2626);
+        return const Color(0xFFDC2626);
       case LogType.inProgress:
-        return Color(0xFFD97706);
+        return const Color(0xFFD97706);
       case LogType.overtime:
-        return Color(0xFF0284C7);
+        return const Color(0xFF0284C7);
       case LogType.leaves:
-        return Color(0xFF9333EA);
+        return const Color(0xFF9333EA);
     }
   }
 }

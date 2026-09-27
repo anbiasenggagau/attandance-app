@@ -1,6 +1,7 @@
 import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/pages/request_list.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 enum RequestPageType { approval, detail }
 
@@ -27,11 +28,12 @@ class RequestDetail extends StatefulWidget {
 class _RequestDetailState extends State<RequestDetail> {
   bool _isLoading = true;
 
+  late String requestorName;
   late String? leaveType;
   late DateTime fromDate;
   late DateTime toDate;
   late String approvalList;
-  late String? note;
+  late String note;
   late Status status;
 
   late bool isPending;
@@ -52,11 +54,12 @@ class _RequestDetailState extends State<RequestDetail> {
       orElse: () => Status.pending,
     );
 
+    requestorName = resp.data!.requestorName;
     leaveType = resp.data!.leaveType;
     fromDate = resp.data!.startTime;
     toDate = resp.data!.endTime;
     approvalList = resp.data!.approvalListName;
-    note = resp.data!.note;
+    note = resp.data!.note ?? "";
     status = mappedStatus;
 
     isPending = status == Status.pending;
@@ -66,6 +69,14 @@ class _RequestDetailState extends State<RequestDetail> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  String _formatDate(DateTime dateTime) {
+    // Convert to UTC first, then shift by +7 hours
+    final utcPlus7 = dateTime.toUtc().add(const Duration(hours: 7));
+
+    // Formats as '26 Aug 2026, 08:00 AM'
+    return DateFormat('dd MMM yyyy, hh:mm a').format(utcPlus7);
   }
 
   @override
@@ -138,24 +149,20 @@ class _RequestDetailState extends State<RequestDetail> {
                 children: [
                   if (widget.requestType == RequestType.leaves) ...[
                     _buildLabel('Leave Type'),
-                    _buildValue(
-                      context,
-                      'Annual Leave',
-                      icon: Icons.event_note,
-                    ),
+                    _buildValue(context, leaveType!, icon: Icons.event_note),
                   ],
 
                   const SizedBox(height: 20),
 
                   _buildLabel("Requestor Name"),
-                  _buildValue(context, "Megan Fox", icon: Icons.person),
+                  _buildValue(context, requestorName, icon: Icons.person),
 
                   const SizedBox(height: 20),
 
                   _buildLabel('From'),
                   _buildValue(
                     context,
-                    '26 Aug 2026, 08:00 AM',
+                    _formatDate(fromDate),
                     icon: Icons.calendar_today,
                   ),
 
@@ -164,23 +171,19 @@ class _RequestDetailState extends State<RequestDetail> {
                   _buildLabel('To'),
                   _buildValue(
                     context,
-                    '26 Aug 2026, 04:00 PM',
+                    _formatDate(toDate),
                     icon: Icons.calendar_today,
                   ),
 
                   const SizedBox(height: 20),
 
                   _buildLabel('Approval To'),
-                  _buildValue(context, 'Human Resources', icon: Icons.approval),
+                  _buildValue(context, approvalList, icon: Icons.approval),
 
                   const SizedBox(height: 20),
 
                   _buildLabel('Note'),
-                  _buildValue(
-                    context,
-                    'Working overtime to complete the monthly report.',
-                    maxLines: 4,
-                  ),
+                  _buildValue(context, note, maxLines: 4),
                   const SizedBox(height: 40),
 
                   widget.pageType == RequestPageType.approval
