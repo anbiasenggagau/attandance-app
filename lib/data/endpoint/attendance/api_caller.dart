@@ -15,7 +15,9 @@ class AttendanceApiCaller {
     http.Client? client,
   }) : client = client ?? http.Client();
 
-  Future<AttendanceResponse> getAttendance(AttendanceRequest? request) async {
+  Future<AttendanceResponse> getAttendance(
+    AttendancePagination? request,
+  ) async {
     var uri = Uri.parse('$baseUrl/attendances');
     if (request != null) {
       uri = uri.replace(queryParameters: request.toQueryParams());

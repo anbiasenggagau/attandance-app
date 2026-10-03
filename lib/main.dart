@@ -55,8 +55,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  CentralApiCaller apiCaller = CentralApiCaller();
+
   int selectedIdx = 2;
   late final Set<int> _visitedIndices = {selectedIdx};
+
+  int outStandingReq = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +75,7 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.only(right: 16.0),
                   child: IconButton(
                     icon: Badge.count(
-                      count: 2,
+                      count: outStandingReq,
                       child: const Icon(Icons.approval),
                     ),
                     tooltip: 'Approval',
@@ -102,7 +106,13 @@ class _HomePageState extends State<HomePage> {
               ? const Attendance()
               : const SizedBox.shrink(),
           _visitedIndices.contains(3)
-              ? const Request()
+              ? Request(
+                  onRequestCountChanged: (count) {
+                    setState(() {
+                      outStandingReq = count;
+                    });
+                  },
+                )
               : const SizedBox.shrink(),
         ],
       ),

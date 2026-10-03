@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 
 class CentralApiCaller {
   static CentralApiCaller? _instance;
-  final String baseUrl = "https://attendance.senggagau.uk";
+  final String baseUrl = "https://attendance-host.senggagau.uk";
   final http.Client httpClient;
   String? jwtToken;
 

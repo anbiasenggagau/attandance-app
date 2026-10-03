@@ -141,3 +141,65 @@ class RecordOption extends BaseResponse {
     );
   }
 }
+
+class RequestOption extends BaseResponse {
+  final RequestOptionData? data;
+
+  RequestOption({required super.statusCode, required super.message, this.data});
+
+  factory RequestOption.fromJson(Map<String, dynamic> json, int statusCode) {
+    if (json["data"] != null) {
+      return RequestOption(
+        statusCode: statusCode,
+        message: json["message"],
+        data: RequestOptionData.fromJson(json["data"]),
+      );
+    }
+    return RequestOption(statusCode: statusCode, message: json["message"]);
+  }
+}
+
+class RequestOptionData {
+  final List<RequestOptionApprovalList> approvalList;
+  final List<String> leaveType;
+  final int outStandingReq;
+
+  RequestOptionData({
+    required this.approvalList,
+    required this.leaveType,
+    required this.outStandingReq,
+  });
+
+  factory RequestOptionData.fromJson(Map<String, dynamic> json) {
+    final list =
+        (json['approvalLists'] as List<dynamic>?)
+            ?.map(
+              (item) => RequestOptionApprovalList.fromJson(
+                item as Map<String, dynamic>,
+              ),
+            )
+            .toList() ??
+        [];
+
+    final List<String> leaveType = List<String>.from(json['leaveType']);
+    return RequestOptionData(
+      approvalList: list,
+      leaveType: leaveType,
+      outStandingReq: json['outStandingReq'],
+    );
+  }
+}
+
+class RequestOptionApprovalList {
+  final int id;
+  final String listName;
+
+  RequestOptionApprovalList({required this.id, required this.listName});
+
+  factory RequestOptionApprovalList.fromJson(Map<String, dynamic> json) {
+    return RequestOptionApprovalList(
+      id: json["id"],
+      listName: json["listName"],
+    );
+  }
+}

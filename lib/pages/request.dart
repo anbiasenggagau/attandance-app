@@ -1,38 +1,56 @@
+import 'package:attandance/data/central_api_caller.dart';
+import 'package:attandance/data/endpoint/requests/request.dart';
+import 'package:attandance/data/endpoint/requests/response.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class Request extends StatefulWidget {
-  const Request({super.key});
+  final ValueChanged<int>? onRequestCountChanged;
+  const Request({super.key, this.onRequestCountChanged});
 
   @override
   State<Request> createState() => _RequestState();
 }
 
-class _RequestState extends State<Request> {
+class _RequestState extends State<Request> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  int _currentIndex = 0;
+
+  bool _isLoading = true;
+  String? _errorMessage;
+
   String? _selectedLeaveType;
   String? _selectedApproval;
   DateTime? _fromDate;
   DateTime? _toDate;
   final TextEditingController _noteController = TextEditingController();
 
-  // Enum List
-  final List<String> _leaveTypes = [
-    'Annual Leave',
-    'Sick Leave',
-    'Maternity Leave',
-    'Unpaid Leave',
-  ];
+  CentralApiCaller apiCaller = CentralApiCaller();
 
-  final List<String> _approvalDepartments = [
-    'Direct Manager',
-    'Finance Department',
-    'General Affairs (GA)',
-    'Human Resources (HR)',
-  ];
+  List<RequestOptionApprovalList> _approvalList = [];
+  List<String> _leaveTypes = [];
+  List<String> get _approvalDepartments =>
+      _approvalList.map((val) => val.listName).toList();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeOptions();
+
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {
+          _currentIndex = _tabController.index;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
     _noteController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -41,19 +59,133 @@ class _RequestState extends State<Request> {
     return DateFormat('dd MMM yyyy, HH:mm').format(date);
   }
 
+  Future<void> _initializeOptions() async {
+    try {
+      final response = await apiCaller.request.getRequestOptions();
+      final options = response.data;
+
+      if (options == null) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "No request options available.";
+        });
+        return;
+      }
+
+      setState(() {
+        _approvalList = options.approvalList;
+        _leaveTypes = options.leaveType;
+        _isLoading = false;
+      });
+
+      widget.onRequestCountChanged?.call(options.outStandingReq);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _postRequest() async {
+    if (_fromDate == null ||
+        _toDate == null ||
+        _selectedApproval == null ||
+        (_currentIndex == 0 && _selectedLeaveType == null)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Fill the mandatory field"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final selectedApprovalList = _approvalList.firstWhere(
+      (item) => item.listName == _selectedApproval,
+    );
+    final requestType = _currentIndex == 0 ? "Leaves" : "Overtime";
+    final leaveType = requestType == "Leaves" ? _selectedLeaveType : null;
+    final note = _noteController.text;
+    final startTime = _fromDate!;
+    final endTime = _toDate!;
+
+    final request = RequestsRequest(
+      approvalListId: selectedApprovalList.id,
+      requestType: requestType,
+      leaveType: leaveType,
+      note: note,
+      startTime: startTime,
+      endTime: endTime,
+    );
+
+    final resp = await apiCaller.request.postRequest(request);
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(resp.message), backgroundColor: Colors.red),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(resp.message),
+          backgroundColor: Colors.lightGreen,
+        ),
+      );
+
+      setState(() {
+        _noteController.clear();
+        _fromDate = null;
+        _toDate = null;
+        _selectedApproval = null;
+        _selectedLeaveType = null;
+      });
+    }
+  }
+
   Future<void> _selectDateTime(
     BuildContext context, {
     required bool isFrom,
   }) async {
-    final DateTime initialDate = isFrom
-        ? (_fromDate ?? DateTime.now())
-        : (_toDate ?? _fromDate ?? DateTime.now());
+    // If user tries to pick "To" before setting "From", ask them to set "From" first
+    if (!isFrom && _fromDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select "From" date & time first.'),
+        ),
+      );
+      return;
+    }
 
-    // 1. Pick Date
+    // 1. Determine minimum allowed date and initial date
+    final DateTime now = DateTime.now();
+    final DateTime firstDate = (!isFrom && _fromDate != null)
+        ? DateTime(
+            _fromDate!.year,
+            _fromDate!.month,
+            _fromDate!.day,
+          ) // Start of _fromDate day
+        : DateTime(2020);
+
+    DateTime initialDate;
+    if (isFrom) {
+      initialDate = _fromDate ?? now;
+    } else {
+      initialDate = _toDate ?? _fromDate ?? now;
+      if (initialDate.isBefore(firstDate)) {
+        initialDate = firstDate;
+      }
+    }
+
+    // 2. Pick Date (Dates before _fromDate are greyed out)
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: DateTime(2020),
+      firstDate: firstDate, // <-- Disables all calendar days before _fromDate
       lastDate: DateTime(2030),
       builder: (context, child) {
         return Theme(
@@ -71,9 +203,14 @@ class _RequestState extends State<Request> {
 
     if (pickedDate == null) return;
 
-    // 2. Pick Time
+    // 3. Pick Time
     if (!mounted) return;
-    final TimeOfDay initialTime = TimeOfDay.fromDateTime(initialDate);
+
+    // Set default initial time
+    TimeOfDay initialTime = TimeOfDay.fromDateTime(
+      isFrom ? (_fromDate ?? now) : (_toDate ?? _fromDate ?? now),
+    );
+
     final TimeOfDay? pickedTime = await showTimePicker(
       // ignore: use_build_context_synchronously
       context: context,
@@ -90,7 +227,7 @@ class _RequestState extends State<Request> {
 
     if (pickedTime == null) return;
 
-    // 3. Combine them
+    // 4. Combine Date & Time
     final DateTime finalDateTime = DateTime(
       pickedDate.year,
       pickedDate.month,
@@ -99,9 +236,23 @@ class _RequestState extends State<Request> {
       pickedTime.minute,
     );
 
+    // 5. Validation Check for Time
+    if (!isFrom && _fromDate != null && finalDateTime.isBefore(_fromDate!)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '"To" date & time cannot be before "From" date & time.',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       if (isFrom) {
         _fromDate = finalDateTime;
+        // Reset _toDate if it is now earlier than the new _fromDate
         if (_toDate != null && _toDate!.isBefore(_fromDate!)) {
           _toDate = null;
         }
@@ -324,7 +475,7 @@ class _RequestState extends State<Request> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: _postRequest,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.surface,
@@ -347,26 +498,34 @@ class _RequestState extends State<Request> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          toolbarHeight: 0,
-          bottom: const TabBar(
-            labelColor: Color(0xFF0F172A),
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Color(0xFF0F172A),
-            indicatorWeight: 3,
-            tabs: [
-              Tab(text: 'Leave'),
-              Tab(text: 'Overtime'),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          children: [_buildForm(isLeave: true), _buildForm(isLeave: false)],
+    Widget? content;
+    if (_isLoading) {
+      content = Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null && _errorMessage != "") {
+      Center(child: Text('Error: $_errorMessage'));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Color(0xFF0F172A),
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Color(0xFF0F172A),
+          indicatorWeight: 3,
+          tabs: [
+            Tab(text: 'Leave'),
+            Tab(text: 'Overtime'),
+          ],
         ),
       ),
+      body:
+          content ??
+          TabBarView(
+            controller: _tabController,
+            children: [_buildForm(isLeave: true), _buildForm(isLeave: false)],
+          ),
     );
   }
 }

@@ -81,9 +81,31 @@ class _RequestListState extends State<RequestList> {
     super.dispose();
   }
 
+  Future<void> _onRefresh() async {
+    final now = DateTime.now();
+
+    setState(() {
+      selectedMonth = monthsName[now.month - 1];
+      selectedYear = now.year.toString();
+
+      _topPage = 1;
+      _currentPage = 1;
+      _hasPrevPage = false;
+      _hasNextPage = true;
+      _isLoadingTop = false;
+      _isLoadingMore = false;
+      _isLoading = true;
+      _errorMessage;
+
+      _loadedRecords.clear(); // Reset list if paginating
+    });
+
+    await _initializeOptionsAndData();
+  }
+
   Future<void> _initializeOptionsAndData() async {
     try {
-      final response = await apiCaller.request.getOptions();
+      final response = await apiCaller.request.getRecordOptions();
       final options = response.data;
 
       if (options == null || options.isEmpty) {
@@ -151,7 +173,7 @@ class _RequestListState extends State<RequestList> {
 
     try {
       final apiResponse = await apiCaller.request.getApprovals(
-        RequestsRequest(
+        RequestsPagination(
           pageSize: _pageSize,
           month: targetMonth,
           year: targetYear,
@@ -220,7 +242,7 @@ class _RequestListState extends State<RequestList> {
     try {
       final nextPage = _currentPage + 1;
       final apiResponse = await apiCaller.request.getApprovals(
-        RequestsRequest(page: nextPage, pageSize: _pageSize),
+        RequestsPagination(page: nextPage, pageSize: _pageSize),
       );
 
       final newRecords = apiResponse.data
@@ -252,7 +274,7 @@ class _RequestListState extends State<RequestList> {
     try {
       final prevPage = _topPage - 1;
       final apiResponse = await apiCaller.request.getApprovals(
-        RequestsRequest(page: prevPage, pageSize: _pageSize),
+        RequestsPagination(page: prevPage, pageSize: _pageSize),
       );
 
       final newRecords = apiResponse.data
@@ -391,20 +413,24 @@ class _RequestListState extends State<RequestList> {
       return const Center(child: Text('No approvals found.'));
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16.0),
-      itemCount: _loadedRecords.length + (_isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == _loadedRecords.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16.0),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+    return RefreshIndicator(
+      onRefresh: _onRefresh, // Triggers when user pulls down at top of list
+      color: Theme.of(context).colorScheme.primary,
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16.0),
+        itemCount: _loadedRecords.length + (_isLoadingMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _loadedRecords.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
 
-        return AttendanceCard(record: _loadedRecords[index]);
-      },
+          return AttendanceCard(record: _loadedRecords[index]);
+        },
+      ),
     );
   }
 

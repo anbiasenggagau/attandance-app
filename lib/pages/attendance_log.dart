@@ -82,6 +82,28 @@ class _AttendanceLogState extends State<AttendanceLog> {
     super.dispose();
   }
 
+  Future<void> _onRefresh() async {
+    final now = DateTime.now();
+
+    setState(() {
+      selectedMonth = monthsName[now.month - 1];
+      selectedYear = now.year.toString();
+
+      _topPage = 1;
+      _currentPage = 1;
+      _hasPrevPage = false;
+      _hasNextPage = true;
+      _isLoadingTop = false;
+      _isLoadingMore = false;
+      _isLoading = true;
+      _errorMessage;
+
+      _loadedRecords.clear(); // Reset list if paginating
+    });
+
+    await _initializeOptionsAndData();
+  }
+
   Future<void> _initializeOptionsAndData() async {
     try {
       final response = await apiCaller.attendance.getOptions();
@@ -152,7 +174,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
 
     try {
       final apiResponse = await apiCaller.attendance.getAttendance(
-        AttendanceRequest(
+        AttendancePagination(
           pageSize: _pageSize,
           month: targetMonth,
           year: targetYear,
@@ -221,7 +243,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
     try {
       final nextPage = _currentPage + 1;
       final apiResponse = await apiCaller.attendance.getAttendance(
-        AttendanceRequest(page: nextPage, pageSize: _pageSize),
+        AttendancePagination(page: nextPage, pageSize: _pageSize),
       );
 
       final newRecords = apiResponse.data
@@ -253,7 +275,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
     try {
       final prevPage = _topPage - 1;
       final apiResponse = await apiCaller.attendance.getAttendance(
-        AttendanceRequest(page: prevPage, pageSize: _pageSize),
+        AttendancePagination(page: prevPage, pageSize: _pageSize),
       );
 
       final newRecords = apiResponse.data
@@ -392,20 +414,24 @@ class _AttendanceLogState extends State<AttendanceLog> {
       return const Center(child: Text('No attendance records found.'));
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16.0),
-      itemCount: _loadedRecords.length + (_isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == _loadedRecords.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16.0),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+    return RefreshIndicator(
+      onRefresh: _onRefresh, // Triggers when user pulls down at top of list
+      color: Theme.of(context).colorScheme.primary,
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16.0),
+        itemCount: _loadedRecords.length + (_isLoadingMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _loadedRecords.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
 
-        return AttendanceCard(record: _loadedRecords[index]);
-      },
+          return AttendanceCard(record: _loadedRecords[index]);
+        },
+      ),
     );
   }
 
