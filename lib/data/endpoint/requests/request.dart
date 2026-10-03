@@ -52,3 +52,12 @@ class RequestsRequest {
     'endTime': endTime.toIso8601String(),
   };
 }
+
+class RequestsApproval {
+  final int id;
+  final bool approve;
+
+  RequestsApproval({required this.id, required this.approve});
+
+  Map<String, dynamic> toJson() => {'id': id, 'approve': approve};
+}

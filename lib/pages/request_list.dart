@@ -1,6 +1,7 @@
 import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/data/endpoint/requests/request.dart';
 import 'package:attandance/data/endpoint/requests/response.dart';
+import 'package:attandance/main.dart';
 import 'package:attandance/pages/request_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -66,6 +67,7 @@ class _RequestListState extends State<RequestList> {
   @override
   void initState() {
     super.initState();
+    globalDataSync.addListener(_initializeOptionsAndData);
 
     final now = DateTime.now();
     selectedMonth = monthsName[now.month - 1];
@@ -77,6 +79,7 @@ class _RequestListState extends State<RequestList> {
 
   @override
   void dispose() {
+    globalDataSync.removeListener(_initializeOptionsAndData);
     _scrollController.dispose();
     super.dispose();
   }

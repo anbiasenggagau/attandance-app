@@ -1,4 +1,3 @@
-// lib/screens/home_page.dart
 import 'package:attandance/widgets/gps_info.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';

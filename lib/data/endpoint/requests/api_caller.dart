@@ -145,4 +145,37 @@ class RequestApiCaller {
       return BaseResponse(statusCode: 0, message: message);
     }
   }
+
+  Future<BaseResponse> postApproval(RequestsApproval request) async {
+    try {
+      var uri = Uri.parse('$baseUrl/requests/approvals');
+
+      final currentToken = getToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (currentToken != null && currentToken.isNotEmpty)
+          'Authorization': 'Bearer $currentToken',
+      };
+
+      final response = await client.post(
+        uri,
+        headers: headers,
+        body: jsonEncode(request.toJson()),
+      );
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return BaseResponse(
+          message: jsonBody["message"],
+          statusCode: response.statusCode,
+        );
+      } else {
+        final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+        return BaseResponse(statusCode: response.statusCode, message: errorMsg);
+      }
+    } catch (e) {
+      final message = "Failed to post data: ${e.toString()} ";
+      return BaseResponse(statusCode: 0, message: message);
+    }
+  }
 }

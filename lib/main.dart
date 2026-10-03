@@ -10,6 +10,16 @@ import 'package:flutter/material.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+class DataSyncNotifier extends ValueNotifier<int> {
+  DataSyncNotifier() : super(0);
+
+  void notifyDataChanged() {
+    value++;
+  }
+}
+
+final globalDataSync = DataSyncNotifier();
+
 void main() async {
   runApp(const Attandance());
 }
@@ -63,7 +73,25 @@ class _HomePageState extends State<HomePage> {
   int outStandingReq = 0;
 
   @override
+  void initState() {
+    super.initState();
+    globalDataSync.addListener(_onDataSyncChanged);
+  }
+
+  @override
+  void dispose() {
+    globalDataSync.removeListener(_onDataSyncChanged);
+    super.dispose();
+  }
+
+  void _onDataSyncChanged() {
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final currentVersion = globalDataSync.value;
+
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
@@ -100,7 +128,10 @@ class _HomePageState extends State<HomePage> {
               ? const ColorSchemePreviewPage()
               : const SizedBox.shrink(),
           _visitedIndices.contains(1)
-              ? const AttendanceLog()
+              ? AttendanceLog(
+                  dataVersion: currentVersion,
+                  isActive: selectedIdx == 1,
+                )
               : const SizedBox.shrink(),
           _visitedIndices.contains(2)
               ? const Attendance()
@@ -175,8 +206,7 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.person_outline),
             title: const Text('Account Info'),
             onTap: () {
-              Navigator.pop(context); // Close the drawer
-              // Navigate to Account Info page
+              Navigator.pop(context);
             },
           ),
           const Divider(),
@@ -192,14 +222,13 @@ class AppDrawer extends StatelessWidget {
                     content: const Text('Are you sure you want to log out?'),
                     actions: [
                       TextButton(
-                        onPressed: () =>
-                            Navigator.pop(dialogContext), // Close dialog
+                        onPressed: () => Navigator.pop(dialogContext),
                         child: const Text('Cancel'),
                       ),
                       TextButton(
                         onPressed: () async {
-                          Navigator.pop(dialogContext); // Close dialog
-                          Navigator.pop(context); // Close drawer
+                          Navigator.pop(dialogContext);
+                          Navigator.pop(context);
 
                           // Clear stored JWT token
                           await TokenStorage.deleteToken();

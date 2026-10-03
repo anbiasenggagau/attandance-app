@@ -152,7 +152,7 @@ class AttendanceResponse extends BaseResponse {
 }
 
 class CurrentAttendance extends BaseResponse {
-  final AttendanceItem? data; // 1. Added '?' to make it nullable
+  final AttendanceItem? data;
 
   CurrentAttendance({
     required super.statusCode,
@@ -177,11 +177,7 @@ class CurrentAttendance extends BaseResponse {
 class LogOption extends BaseResponse {
   final Map<String, List<String>>? data;
 
-  LogOption({
-    required super.statusCode,
-    required super.message,
-    this.data,
-  }); // Added semicolon here
+  LogOption({required super.statusCode, required super.message, this.data});
 
   factory LogOption.fromJson(Map<String, dynamic> json, int statusCode) {
     Map<String, List<String>>? parsedData;

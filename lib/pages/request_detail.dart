@@ -1,4 +1,6 @@
 import 'package:attandance/data/central_api_caller.dart';
+import 'package:attandance/data/endpoint/requests/request.dart';
+import 'package:attandance/main.dart';
 import 'package:attandance/pages/request_list.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -72,11 +74,63 @@ class _RequestDetailState extends State<RequestDetail> {
   }
 
   String _formatDate(DateTime dateTime) {
-    // Convert to UTC first, then shift by +7 hours
     final utcPlus7 = dateTime.toUtc().add(const Duration(hours: 7));
-
-    // Formats as '26 Aug 2026, 08:00 AM'
     return DateFormat('dd MMM yyyy, hh:mm a').format(utcPlus7);
+  }
+
+  Future<void> _postApproval(bool approve) async {
+    final actionText = approve ? 'approve' : 'deny';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('Confirm ${approve ? "Approval" : "Denial"}'),
+          content: Text('Are you sure you want to $actionText this request?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: approve ? Colors.green : Colors.red,
+              ),
+              child: Text(approve ? 'Approve' : 'Deny'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    final request = RequestsApproval(id: widget.id, approve: approve);
+    final resp = await apiCaller.request.postApproval(request);
+
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(resp.message), backgroundColor: Colors.red),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(resp.message),
+          backgroundColor: Colors.lightGreen,
+        ),
+      );
+
+      setState(() {
+        isPending = false;
+        isApproved = approve;
+        isDenied = !approve;
+      });
+
+      globalDataSync.notifyDataChanged();
+    }
   }
 
   @override
@@ -199,9 +253,9 @@ class _RequestDetailState extends State<RequestDetail> {
                                     child: OutlinedButton(
                                       onPressed: isPending
                                           ? () {
-                                              // Handle deny action
+                                              _postApproval(false);
                                             }
-                                          : null, // Disables button when not pending
+                                          : null,
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: Colors.red,
                                         side: BorderSide(
@@ -232,9 +286,9 @@ class _RequestDetailState extends State<RequestDetail> {
                                     child: ElevatedButton(
                                       onPressed: isPending
                                           ? () {
-                                              // Handle approve action
+                                              _postApproval(true);
                                             }
-                                          : null, // Disables button when not pending
+                                          : null,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Theme.of(
                                           context,

@@ -29,7 +29,7 @@ class LoginResponse extends BaseResponse {
 
   factory LoginResponse.fromJson(Map<String, dynamic> json, int statusCode) {
     return LoginResponse(
-      statusCode: statusCode, // Passed directly from HTTP response metadata
+      statusCode: statusCode,
       message: json['message'] as String? ?? '',
       token: json['token'] as String? ?? '',
       user: UserHeader.fromJson(json['user'] as Map<String, dynamic>? ?? {}),

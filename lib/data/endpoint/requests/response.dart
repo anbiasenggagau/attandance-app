@@ -118,11 +118,7 @@ class RequestDetailResponse extends BaseResponse {
 class RecordOption extends BaseResponse {
   final Map<String, List<String>>? data;
 
-  RecordOption({
-    required super.statusCode,
-    required super.message,
-    this.data,
-  }); // Added semicolon here
+  RecordOption({required super.statusCode, required super.message, this.data});
 
   factory RecordOption.fromJson(Map<String, dynamic> json, int statusCode) {
     Map<String, List<String>>? parsedData;

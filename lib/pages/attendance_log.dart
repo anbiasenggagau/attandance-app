@@ -6,14 +6,17 @@ import 'package:attandance/pages/submit_attendance.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-void main() {
-  runApp(const AttendanceLog());
-}
-
 enum LogType { onTime, late, inProgress, overtime, leaves }
 
 class AttendanceLog extends StatefulWidget {
-  const AttendanceLog({super.key});
+  final int dataVersion;
+  final bool isActive;
+
+  const AttendanceLog({
+    super.key,
+    required this.dataVersion,
+    required this.isActive,
+  });
 
   @override
   State<AttendanceLog> createState() => _AttendanceLogState();
@@ -46,6 +49,7 @@ class _AttendanceLogState extends State<AttendanceLog> {
   late String selectedMonth;
   late String selectedYear;
 
+  int _lastFetchedVersion = -1;
   final int _fetchThreshold = 10;
   final double _logCardHeight = 110;
   final int _pageSize = 20;
@@ -80,6 +84,19 @@ class _AttendanceLogState extends State<AttendanceLog> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant AttendanceLog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _checkAndFetch();
+  }
+
+  void _checkAndFetch() {
+    if (widget.isActive && widget.dataVersion != _lastFetchedVersion) {
+      _lastFetchedVersion = widget.dataVersion;
+      _onRefresh();
+    }
   }
 
   Future<void> _onRefresh() async {

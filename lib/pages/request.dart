@@ -1,6 +1,7 @@
 import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/data/endpoint/requests/request.dart';
 import 'package:attandance/data/endpoint/requests/response.dart';
+import 'package:attandance/main.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -52,6 +53,15 @@ class _RequestState extends State<Request> with SingleTickerProviderStateMixin {
     _noteController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onRefresh() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    await _initializeOptions();
   }
 
   String _formatDate(DateTime? date) {
@@ -144,6 +154,7 @@ class _RequestState extends State<Request> with SingleTickerProviderStateMixin {
         _selectedApproval = null;
         _selectedLeaveType = null;
       });
+      globalDataSync.notifyDataChanged();
     }
   }
 
@@ -502,7 +513,20 @@ class _RequestState extends State<Request> with SingleTickerProviderStateMixin {
     if (_isLoading) {
       content = Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null && _errorMessage != "") {
-      Center(child: Text('Error: $_errorMessage'));
+      content = Center(
+        child: Column(
+          children: [
+            Text('Error: $_errorMessage'),
+            IconButton.filledTonal(
+              onPressed: () {
+                _onRefresh();
+              },
+              icon: const Icon(Icons.refresh),
+              tooltip: "Refresh Data",
+            ),
+          ],
+        ),
+      );
     }
 
     return Scaffold(

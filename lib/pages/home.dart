@@ -14,6 +14,8 @@ class Attendance extends StatefulWidget {
 
 class _AttendanceState extends State<Attendance> {
   bool _isLoading = true;
+  String? _errorMessage;
+
   AttendanceInfo checkIn = AttendanceInfo();
   AttendanceInfo checkOut = AttendanceInfo();
   AttendanceType attendanceType = AttendanceType.checkin;
@@ -24,6 +26,15 @@ class _AttendanceState extends State<Attendance> {
   void initState() {
     super.initState();
     _getCurrentAttendance();
+  }
+
+  Future<void> _onRefresh() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    await _getCurrentAttendance();
   }
 
   Future<void> _getCurrentAttendance() async {
@@ -47,6 +58,7 @@ class _AttendanceState extends State<Attendance> {
       }
     } catch (e) {
       if (mounted) {
+        _errorMessage = "Failed to retrieve data";
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Unexpected error occurred'),
@@ -65,12 +77,6 @@ class _AttendanceState extends State<Attendance> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final screenSize = MediaQuery.of(context).size;
-
     Widget buildMetric(
       BuildContext context,
       String label,
@@ -110,6 +116,112 @@ class _AttendanceState extends State<Attendance> {
       );
     }
 
+    Widget containerChild;
+    if (_isLoading) {
+      containerChild = const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    } else if (_errorMessage != null && _errorMessage!.isNotEmpty) {
+      containerChild = Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+                size: 32,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Error: $_errorMessage',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              IconButton.filledTonal(
+                onPressed: _onRefresh,
+                icon: const Icon(Icons.refresh),
+                tooltip: "Refresh Data",
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      containerChild = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Today's Attendance",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  checkIn.time == null ? "Submit Attendance" : "In Progress",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              buildMetric(
+                context,
+                "Check In",
+                checkIn.time == null
+                    ? "--:--"
+                    : DateFormat("HH:mm").format(checkIn.time!),
+                Icons.login,
+              ),
+              buildMetric(
+                context,
+                "Check Out",
+                checkOut.time == null
+                    ? "--:--"
+                    : DateFormat("HH:mm").format(checkOut.time!),
+                Icons.logout,
+              ),
+              buildMetric(
+                context,
+                "Location",
+                "Jakarta",
+                Icons.location_on_outlined,
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+
     return Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -134,99 +246,33 @@ class _AttendanceState extends State<Attendance> {
                 ).colorScheme.outlineVariant.withValues(alpha: 0.3),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Today's Attendance",
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        checkIn.time == null
-                            ? "Submit Attendance"
-                            : "In Progress",
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    buildMetric(
-                      context,
-                      "Check In",
-                      checkIn.time == null
-                          ? "--:--"
-                          : DateFormat("HH:mm").format(checkIn.time!),
-                      Icons.login,
-                    ),
-                    buildMetric(
-                      context,
-                      "Check Out",
-                      checkOut.time == null
-                          ? "--:--"
-                          : DateFormat("HH:mm").format(checkOut.time!),
-                      Icons.logout,
-                    ),
-                    buildMetric(
-                      context,
-                      "Location",
-                      "Jakarta",
-                      Icons.location_on_outlined,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            child: containerChild,
           ),
 
           // Clock Action Button
-          Container(
-            margin: const EdgeInsets.all(16),
-            child: ClockActionButton(
-              icon: Icons.touch_app_outlined,
-              label: attendanceType == AttendanceType.checkout
-                  ? "Check Out"
-                  : "Check In",
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SubmitAttendance(
-                      attendanceType: attendanceType,
-                      checkInDetail: checkIn,
-                      checkOutDetail: checkOut,
-                    ),
+          !_isLoading && _errorMessage == null
+              ? Container(
+                  margin: const EdgeInsets.all(16),
+                  child: ClockActionButton(
+                    icon: Icons.touch_app_outlined,
+                    label: attendanceType == AttendanceType.checkout
+                        ? "Check Out"
+                        : "Check In",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SubmitAttendance(
+                            attendanceType: attendanceType,
+                            checkInDetail: checkIn,
+                            checkOutDetail: checkOut,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
-          ),
+                )
+              : const SizedBox.shrink(),
         ],
       ),
     );
