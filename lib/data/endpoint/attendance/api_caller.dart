@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:attandance/data/central_api_caller.dart';
 import 'package:http/http.dart' as http;
 import 'request.dart';
 import 'response.dart';
@@ -117,6 +118,34 @@ class AttendanceApiCaller {
     } catch (e) {
       final message = "Failed to retrieve data: ${e.toString()} ";
       throw Exception(message);
+    }
+  }
+
+  Future<BaseResponse> postAttendance(PostAttendanceRequest requestBody) async {
+    try {
+      var uri = Uri.parse('$baseUrl/attendances');
+      final request = http.MultipartRequest('POST', uri);
+
+      final currentToken = getToken();
+      request.headers["Content-Type"] = "application/json";
+      if (currentToken != null && currentToken.isNotEmpty) {
+        request.headers["Authorization"] = 'Bearer $currentToken';
+      }
+
+      await requestBody.toFormData(request);
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return PostAttendanceResponse.fromJson(jsonBody, response.statusCode);
+      } else {
+        final errorMsg = jsonBody['message'] ?? 'Failed to post attendance';
+        return BaseResponse(statusCode: response.statusCode, message: errorMsg);
+      }
+    } catch (e) {
+      final message = "Failed to retrieve data: ${e.toString()} ";
+      return BaseResponse(statusCode: 0, message: message);
     }
   }
 }

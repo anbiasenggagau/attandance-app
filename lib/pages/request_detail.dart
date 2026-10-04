@@ -1,6 +1,5 @@
 import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/data/endpoint/requests/request.dart';
-import 'package:attandance/main.dart';
 import 'package:attandance/pages/request_list.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -129,7 +128,7 @@ class _RequestDetailState extends State<RequestDetail> {
         isDenied = !approve;
       });
 
-      globalDataSync.notifyDataChanged();
+      Navigator.pop(context, true);
     }
   }
 

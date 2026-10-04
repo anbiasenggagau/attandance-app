@@ -424,7 +424,36 @@ class _AttendanceLogState extends State<AttendanceLog> {
     }
 
     if (_errorMessage != null) {
-      return Center(child: Text('Error: $_errorMessage'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+                size: 32,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Error: $_errorMessage',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              IconButton.filledTonal(
+                onPressed: _onRefresh,
+                icon: const Icon(Icons.refresh),
+                tooltip: "Refresh Data",
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     if (_loadedRecords.isEmpty) {
@@ -478,8 +507,6 @@ class _AttendanceLogState extends State<AttendanceLog> {
                   ),
                   Row(
                     children: [
-                      // const Icon(Icons.refresh_rounded, size: 16),
-                      // const SizedBox(width: 8),
                       _buildDropdownButton(
                         value: selectedMonth,
                         items: months,

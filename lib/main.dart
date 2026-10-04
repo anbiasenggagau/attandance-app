@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/pages/attendance_log.dart';
 import 'package:attandance/pages/color_page.dart';
@@ -7,6 +9,9 @@ import 'package:attandance/pages/request.dart';
 import 'package:attandance/pages/request_list.dart';
 import 'package:attandance/storage/token.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:safe_device/safe_device.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -22,6 +27,79 @@ final globalDataSync = DataSyncNotifier();
 
 void main() async {
   runApp(const Attandance());
+}
+
+Future<void> checkDeveloperMode(BuildContext context) async {
+  if (kDebugMode) {
+    // Check if developer mode is enabled before showing the debug alert
+    bool isDevMode = await SafeDevice.isDevelopmentModeEnable;
+
+    if (isDevMode) {
+      if (!context.mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext dialogContext) {
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: const Text('Developer Options Detected'),
+              content: const Text(
+                'Developer Options are active on this device.\n\n'
+                'In production mode, the application will automatically exit for security compliance. '
+                'Execution is permitted now because this is a debug build.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () =>
+                      Navigator.of(dialogContext).pop(), // Closes the dialog
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+    return;
+  }
+
+  // Check if Developer Options / Mode is enabled
+  bool isDevMode = await SafeDevice.isDevelopmentModeEnable;
+
+  if (isDevMode) {
+    if (!context.mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false, // Prevents dismissal by tapping outside
+      builder: (BuildContext dialogContext) {
+        return PopScope(
+          canPop: false, // Prevents closing via Android back button
+          child: AlertDialog(
+            title: const Text('Security Notice'),
+            content: const Text(
+              'Developer Options are enabled on your device. '
+              'For security reasons, the app will now close.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () {
+                  if (Platform.isAndroid) {
+                    SystemNavigator.pop();
+                  } else if (Platform.isIOS) {
+                    exit(0);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class Attandance extends StatelessWidget {
@@ -75,6 +153,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkDeveloperMode(context);
+    });
     globalDataSync.addListener(_onDataSyncChanged);
   }
 

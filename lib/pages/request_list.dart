@@ -1,7 +1,6 @@
 import 'package:attandance/data/central_api_caller.dart';
 import 'package:attandance/data/endpoint/requests/request.dart';
 import 'package:attandance/data/endpoint/requests/response.dart';
-import 'package:attandance/main.dart';
 import 'package:attandance/pages/request_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -67,7 +66,6 @@ class _RequestListState extends State<RequestList> {
   @override
   void initState() {
     super.initState();
-    globalDataSync.addListener(_initializeOptionsAndData);
 
     final now = DateTime.now();
     selectedMonth = monthsName[now.month - 1];
@@ -79,7 +77,6 @@ class _RequestListState extends State<RequestList> {
 
   @override
   void dispose() {
-    globalDataSync.removeListener(_initializeOptionsAndData);
     _scrollController.dispose();
     super.dispose();
   }
@@ -409,7 +406,36 @@ class _RequestListState extends State<RequestList> {
     }
 
     if (_errorMessage != null) {
-      return Center(child: Text('Error: $_errorMessage'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+                size: 32,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Error: $_errorMessage',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              IconButton.filledTonal(
+                onPressed: _onRefresh,
+                icon: const Icon(Icons.refresh),
+                tooltip: "Refresh Data",
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     if (_loadedRecords.isEmpty) {
@@ -431,7 +457,10 @@ class _RequestListState extends State<RequestList> {
             );
           }
 
-          return AttendanceCard(record: _loadedRecords[index]);
+          return AttendanceCard(
+            record: _loadedRecords[index],
+            onRefresh: _onRefresh,
+          );
         },
       ),
     );
@@ -569,8 +598,9 @@ class RequestRecord {
 
 class AttendanceCard extends StatelessWidget {
   final RequestRecord record;
+  final VoidCallback? onRefresh;
 
-  const AttendanceCard({super.key, required this.record});
+  const AttendanceCard({super.key, required this.record, this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -583,10 +613,10 @@ class AttendanceCard extends StatelessWidget {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            onTap: () {
+            onTap: () async {
               if (record.requestType == RequestType.leaves ||
                   record.requestType == RequestType.overtime) {
-                Navigator.push(
+                final bool? isUpdated = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => RequestDetail(
@@ -596,6 +626,10 @@ class AttendanceCard extends StatelessWidget {
                     ),
                   ),
                 );
+
+                if (isUpdated != null && isUpdated) {
+                  onRefresh?.call();
+                }
               }
             },
             borderRadius: BorderRadius.circular(12),

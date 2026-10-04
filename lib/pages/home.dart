@@ -1,4 +1,5 @@
 import 'package:attandance/data/central_api_caller.dart';
+import 'package:attandance/main.dart';
 import 'package:attandance/pages/submit_attendance.dart';
 import 'package:attandance/widgets/clock_action_button.dart';
 import 'package:attandance/widgets/live_clock.dart';
@@ -25,7 +26,14 @@ class _AttendanceState extends State<Attendance> {
   @override
   void initState() {
     super.initState();
+    globalDataSync.addListener(_onRefresh);
     _getCurrentAttendance();
+  }
+
+  @override
+  void dispose() {
+    globalDataSync.removeListener(_onRefresh);
+    super.dispose();
   }
 
   Future<void> _onRefresh() async {
@@ -50,7 +58,16 @@ class _AttendanceState extends State<Attendance> {
           photo: data.checkInDetail!.photo,
           time: data.checkIn,
         );
-        checkOut = AttendanceInfo();
+        if (data.checkOut != null) {
+          checkOut = AttendanceInfo(
+            latitude: data.checkOutDetail!.latitude,
+            longitude: data.checkOutDetail!.longitude,
+            photo: data.checkOutDetail!.photo,
+            time: data.checkOut,
+          );
+        } else {
+          checkOut = AttendanceInfo();
+        }
       } else {
         attendanceType = AttendanceType.checkin;
         checkIn = AttendanceInfo();
@@ -197,7 +214,7 @@ class _AttendanceState extends State<Attendance> {
                 "Check In",
                 checkIn.time == null
                     ? "--:--"
-                    : DateFormat("HH:mm").format(checkIn.time!),
+                    : DateFormat("HH:mm").format(checkIn.time!.toLocal()),
                 Icons.login,
               ),
               buildMetric(
@@ -205,7 +222,7 @@ class _AttendanceState extends State<Attendance> {
                 "Check Out",
                 checkOut.time == null
                     ? "--:--"
-                    : DateFormat("HH:mm").format(checkOut.time!),
+                    : DateFormat("HH:mm").format(checkOut.time!.toLocal()),
                 Icons.logout,
               ),
               buildMetric(

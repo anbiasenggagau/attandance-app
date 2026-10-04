@@ -196,3 +196,26 @@ class LogOption extends BaseResponse {
     );
   }
 }
+
+class PostAttendanceResponse extends BaseResponse {
+  final AttendanceItem? data;
+
+  PostAttendanceResponse({
+    required super.statusCode,
+    required super.message,
+    this.data,
+  });
+
+  factory PostAttendanceResponse.fromJson(
+    Map<String, dynamic> json,
+    int statusCode,
+  ) {
+    return PostAttendanceResponse(
+      statusCode: statusCode,
+      message: json['message'] as String? ?? '',
+      data: json['data'] != null
+          ? AttendanceItem.fromJson(json['data'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}

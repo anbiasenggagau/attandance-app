@@ -31,7 +31,7 @@ class RequestApiCaller {
     if (response.statusCode == 200) {
       return RequestDetailResponse.fromJson(jsonBody, response.statusCode);
     } else {
-      final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+      final errorMsg = jsonBody['message'] ?? 'Failed to fetch request';
       throw Exception(errorMsg);
     }
   }
@@ -56,7 +56,7 @@ class RequestApiCaller {
     if (response.statusCode == 200) {
       return ApprovalList.fromJson(jsonBody, response.statusCode);
     } else {
-      final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+      final errorMsg = jsonBody['message'] ?? 'Failed to fetch approval';
       throw Exception(errorMsg);
     }
   }
@@ -78,7 +78,7 @@ class RequestApiCaller {
       if (response.statusCode == 200) {
         return RecordOption.fromJson(jsonBody, response.statusCode);
       } else {
-        final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+        final errorMsg = jsonBody['message'] ?? 'Failed to fetch option';
         throw Exception(errorMsg);
       }
     } catch (e) {
@@ -104,7 +104,7 @@ class RequestApiCaller {
       if (response.statusCode == 200) {
         return RequestOption.fromJson(jsonBody, response.statusCode);
       } else {
-        final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+        final errorMsg = jsonBody['message'] ?? 'Failed to fetch option';
         throw Exception(errorMsg);
       }
     } catch (e) {
@@ -137,7 +137,7 @@ class RequestApiCaller {
           statusCode: response.statusCode,
         );
       } else {
-        final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+        final errorMsg = jsonBody['message'] ?? 'Failed to fetch request';
         return BaseResponse(statusCode: response.statusCode, message: errorMsg);
       }
     } catch (e) {
@@ -170,7 +170,7 @@ class RequestApiCaller {
           statusCode: response.statusCode,
         );
       } else {
-        final errorMsg = jsonBody['message'] ?? 'Failed to fetch attendance';
+        final errorMsg = jsonBody['message'] ?? 'Failed to fetch request';
         return BaseResponse(statusCode: response.statusCode, message: errorMsg);
       }
     } catch (e) {

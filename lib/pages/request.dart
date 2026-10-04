@@ -249,7 +249,7 @@ class _RequestState extends State<Request> with SingleTickerProviderStateMixin {
 
     // 5. Validation Check for Time
     if (!isFrom && _fromDate != null && finalDateTime.isBefore(_fromDate!)) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -514,17 +514,33 @@ class _RequestState extends State<Request> with SingleTickerProviderStateMixin {
       content = Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null && _errorMessage != "") {
       content = Center(
-        child: Column(
-          children: [
-            Text('Error: $_errorMessage'),
-            IconButton.filledTonal(
-              onPressed: () {
-                _onRefresh();
-              },
-              icon: const Icon(Icons.refresh),
-              tooltip: "Refresh Data",
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+                size: 32,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Error: $_errorMessage',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              IconButton.filledTonal(
+                onPressed: _onRefresh,
+                icon: const Icon(Icons.refresh),
+                tooltip: "Refresh Data",
+              ),
+            ],
+          ),
         ),
       );
     }

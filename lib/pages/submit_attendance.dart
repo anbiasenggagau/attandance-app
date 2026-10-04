@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:attandance/data/endpoint/attendance/request.dart';
+import 'package:attandance/main.dart';
 import 'package:attandance/widgets/live_clock.dart';
 import 'package:attandance/data/central_api_caller.dart';
 import 'package:flutter/material.dart';
@@ -244,6 +246,53 @@ class _SubmitAttendanceState extends State<SubmitAttendance> {
     }
   }
 
+  Future<void> _postAttendance(AttendanceType attendanceType) async {
+    if (_capturedImage == null || _latitude == null || _longitude == null) {
+      final message =
+          widget.attendanceType == AttendanceType.checkout &&
+              widget.checkOutDetail.time != null
+          ? "Make sure to retake the photo and activate geolocation first"
+          : "Make sure to take the photo and activate geolocation first";
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final attendanceType = widget.attendanceType.name;
+    final image = _capturedImage!;
+    final latitude = _latitude!;
+    final longitude = _longitude!;
+
+    final request = PostAttendanceRequest(
+      attendanceType: attendanceType,
+      image: image,
+      latitude: latitude,
+      longitude: longitude,
+    );
+
+    final resp = await apiCaller.attendance.postAttendance(request);
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(resp.message), backgroundColor: Colors.red),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(resp.message),
+          backgroundColor: Colors.lightGreen,
+        ),
+      );
+
+      globalDataSync.notifyDataChanged();
+
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final initialIndex = widget.attendanceType == AttendanceType.checkout
@@ -310,7 +359,11 @@ class _SubmitAttendanceState extends State<SubmitAttendance> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 20,
         children: [
-          widget.pageType == AttendancePageType.detail
+          widget.pageType == AttendancePageType.detail ||
+                  (isCheckIn &&
+                      widget.attendanceType == AttendanceType.checkout) ||
+                  (!isCheckIn &&
+                      widget.attendanceType == AttendanceType.checkin)
               ? LiveClockWidget(timeStamp: attendanceDetail.time)
               : const LiveClockWidget(),
 
@@ -376,7 +429,11 @@ class _SubmitAttendanceState extends State<SubmitAttendance> {
           // Submit Button
           if (showActionButtons)
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () async {
+                await _postAttendance(
+                  isCheckIn ? AttendanceType.checkin : AttendanceType.checkout,
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.surface,
